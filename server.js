@@ -10,7 +10,7 @@ import { classifyPrintedRange } from './reportClassification.js'
 
 const app = express()
 const port = Number(process.env.PORT) || 3001
-const host = process.env.HOST || '127.0.0.1'
+const host = process.env.HOST || '0.0.0.0'
 const model = 'gemini-3.5-flash-lite'
 const labLanguages = {
   'en-IN': 'English',
@@ -1098,3 +1098,4 @@ if (process.env.MONGODB_URI) {
 app.listen(port, host, () => {
   console.log(`MedSafe API listening on http://${host}:${port}`)
 })
+
