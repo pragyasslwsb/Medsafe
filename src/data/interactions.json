@@ -1,0 +1,106 @@
+[
+  {
+    "drugs": ["aspirin", "warfarin"],
+    "warning": "Taking aspirin with warfarin can increase bleeding risk. Confirm this combination with your doctor."
+  },
+  {
+    "drugs": ["ibuprofen", "diclofenac"],
+    "warning": "These are both anti-inflammatory pain medicines; taking them together can increase stomach, kidney and bleeding risks."
+  },
+  {
+    "drugs": ["metformin", "alcohol"],
+    "warning": "Alcohol with metformin may increase the risk of serious side effects. Ask your clinician about alcohol."
+  },
+  {
+    "drugs": ["ibuprofen", "warfarin"],
+    "warning": "Ibuprofen with warfarin can increase the chance of bleeding."
+  },
+  {
+    "drugs": ["diclofenac", "warfarin"],
+    "warning": "Diclofenac with warfarin can increase bleeding risk."
+  },
+  {
+    "drugs": ["aspirin", "clopidogrel"],
+    "warning": "This combination can increase bleeding risk. It may be intentional, so confirm rather than stopping either medicine."
+  },
+  {
+    "drugs": ["ibuprofen", "aspirin"],
+    "warning": "Ibuprofen can increase stomach bleeding risk and may affect how low-dose aspirin works."
+  },
+  {
+    "drugs": ["diclofenac", "aspirin"],
+    "warning": "Taking two anti-inflammatory medicines can increase stomach bleeding and kidney risks."
+  },
+  {
+    "drugs": ["warfarin", "amiodarone"],
+    "warning": "Amiodarone can change the effect of warfarin and may require closer monitoring."
+  },
+  {
+    "drugs": ["warfarin", "fluconazole"],
+    "warning": "Fluconazole may increase warfarin's effect and bleeding risk; contact your care team."
+  },
+  {
+    "drugs": ["simvastatin", "clarithromycin"],
+    "warning": "Clarithromycin can raise simvastatin levels and increase muscle injury risk."
+  },
+  {
+    "drugs": ["atorvastatin", "clarithromycin"],
+    "warning": "Clarithromycin can increase atorvastatin-related muscle side effects."
+  },
+  {
+    "drugs": ["sildenafil", "nitroglycerin"],
+    "warning": "These medicines together can cause a dangerous drop in blood pressure. Seek urgent medical advice."
+  },
+  {
+    "drugs": ["ramipril", "potassium"],
+    "warning": "Ramipril with potassium supplements may raise blood potassium too much."
+  },
+  {
+    "drugs": ["losartan", "potassium"],
+    "warning": "Losartan with potassium supplements may raise blood potassium too much."
+  },
+  {
+    "drugs": ["spironolactone", "potassium"],
+    "warning": "This combination may cause dangerously high blood potassium."
+  },
+  {
+    "drugs": ["lisinopril", "ibuprofen"],
+    "warning": "Ibuprofen can affect kidney function and blood pressure when taken with lisinopril."
+  },
+  {
+    "drugs": ["ramipril", "ibuprofen"],
+    "warning": "Ibuprofen with ramipril can affect kidney function and blood pressure."
+  },
+  {
+    "drugs": ["metformin", "contrast dye"],
+    "warning": "Some imaging contrast dyes may require a temporary metformin plan. Tell the imaging team you take it."
+  },
+  {
+    "drugs": ["levothyroxine", "calcium"],
+    "warning": "Calcium can reduce levothyroxine absorption; ask your pharmacist how far apart to take them."
+  },
+  {
+    "drugs": ["levothyroxine", "iron"],
+    "warning": "Iron can reduce levothyroxine absorption; ask your pharmacist how far apart to take them."
+  },
+  {
+    "drugs": ["ciprofloxacin", "calcium"],
+    "warning": "Calcium may reduce ciprofloxacin absorption. Ask your pharmacist about dose spacing."
+  },
+  {
+    "drugs": ["ciprofloxacin", "iron"],
+    "warning": "Iron may reduce ciprofloxacin absorption. Ask your pharmacist about dose spacing."
+  },
+  {
+    "drugs": ["glimepiride", "insulin"],
+    "warning": "Both can lower blood sugar; using them together may increase the chance of low blood sugar."
+  },
+  {
+    "drugs": ["tramadol", "sertraline"],
+    "warning": "This combination can increase the risk of serotonin-related side effects and seizures."
+  },
+  {
+    "drugs": ["alprazolam", "opioid"],
+    "warning": "Combining sedatives and opioid pain medicines can dangerously slow breathing."
+  }
+]
