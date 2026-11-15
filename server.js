@@ -1090,7 +1090,7 @@ app.use((error, req, res, next) => {
 if (process.env.MONGODB_URI) {
   mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('Patient history database connected.'))
-    .catch(() => console.error('Patient history database connection failed. Check MONGODB_URI and Atlas network access.'))
+    .catch((error) => console.error('MongoDB diagnostic:', error.name, error.message))
 } else {
   console.warn('Patient history is disabled. Configure MONGODB_URI to enable accounts and saved reports.')
 }
@@ -1098,4 +1098,5 @@ if (process.env.MONGODB_URI) {
 app.listen(port, host, () => {
   console.log(`MedSafe API listening on http://${host}:${port}`)
 })
+
 

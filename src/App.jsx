@@ -1,3 +1,4 @@
+﻿import MedicineReminder from './components/MedicineReminder.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import interactions from './data/interactions.json'
 import generics from './data/generics.json'
@@ -16,7 +17,7 @@ const demoPrescription = {
       timing: 'At night',
       duration: 'As directed',
       confidence: 0.62,
-      hindi: 'यह दवा रात को लें।',
+      hindi: 'à¤¯à¤¹ à¤¦à¤µà¤¾ à¤°à¤¾à¤¤ à¤•à¥‹ à¤²à¥‡à¤‚à¥¤',
     },
     {
       name: 'Aspirin',
@@ -26,7 +27,7 @@ const demoPrescription = {
       timing: 'After breakfast',
       duration: 'As directed',
       confidence: 0.91,
-      hindi: 'यह दवा नाश्ते के बाद लें।',
+      hindi: 'à¤¯à¤¹ à¤¦à¤µà¤¾ à¤¨à¤¾à¤¶à¥à¤¤à¥‡ à¤•à¥‡ à¤¬à¤¾à¤¦ à¤²à¥‡à¤‚à¥¤',
     },
     {
       name: 'Glycomet',
@@ -36,7 +37,7 @@ const demoPrescription = {
       timing: 'After breakfast and dinner',
       duration: '30 days',
       confidence: 0.86,
-      hindi: 'यह दवा नाश्ते और रात के खाने के बाद लें।',
+      hindi: 'à¤¯à¤¹ à¤¦à¤µà¤¾ à¤¨à¤¾à¤¶à¥à¤¤à¥‡ à¤”à¤° à¤°à¤¾à¤¤ à¤•à¥‡ à¤–à¤¾à¤¨à¥‡ à¤•à¥‡ à¤¬à¤¾à¤¦ à¤²à¥‡à¤‚à¥¤',
     },
   ],
   unclear: ['Warfarin dose - please verify against the original prescription.'],
@@ -103,13 +104,13 @@ function getScheduleSlots(medicine) {
   const text = `${medicine.frequency || ''} ${medicine.timing || ''}`.toLowerCase()
   if (!text.trim() || /as needed|when required|prn/.test(text)) return []
 
-  const indianSchedule = text.match(/(?:^|\s)([01])\s*[-–/]\s*([01])\s*[-–/]\s*([01])(?:\s|$)/)
+  const indianSchedule = text.match(/(?:^|\s)([01])\s*[-â€“/]\s*([01])\s*[-â€“/]\s*([01])(?:\s|$)/)
   if (indianSchedule) return slots.filter((_, index) => indianSchedule[index + 1] === '1')
 
   const timingSlots = slots.filter((slot) => {
-    if (slot === 'morning') return /morning|breakfast|सुबह/.test(text)
-    if (slot === 'afternoon') return /afternoon|lunch|दोपहर/.test(text)
-    return /night|evening|bedtime|dinner|रात/.test(text)
+    if (slot === 'morning') return /morning|breakfast|à¤¸à¥à¤¬à¤¹/.test(text)
+    if (slot === 'afternoon') return /afternoon|lunch|à¤¦à¥‹à¤ªà¤¹à¤°/.test(text)
+    return /night|evening|bedtime|dinner|à¤°à¤¾à¤¤/.test(text)
   })
 
   return timingSlots
@@ -439,8 +440,8 @@ function App() {
       medicineId,
       status: stopped ? 'stopped' : 'error',
       message: stopped
-        ? (language === 'hi-IN' ? 'सुनना रोक दिया गया। आप लिखकर भी जानकारी भर सकते हैं।' : 'Listening stopped. You can also type the details.')
-        : (language === 'hi-IN' ? 'सुनना बंद नहीं हो सका। कृपया माइक्रोफ़ोन अनुमति जांचें।' : 'Listening could not be stopped. Check microphone permissions.'),
+        ? (language === 'hi-IN' ? 'à¤¸à¥à¤¨à¤¨à¤¾ à¤°à¥‹à¤• à¤¦à¤¿à¤¯à¤¾ à¤—à¤¯à¤¾à¥¤ à¤†à¤ª à¤²à¤¿à¤–à¤•à¤° à¤­à¥€ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤­à¤° à¤¸à¤•à¤¤à¥‡ à¤¹à¥ˆà¤‚à¥¤' : 'Listening stopped. You can also type the details.')
+        : (language === 'hi-IN' ? 'à¤¸à¥à¤¨à¤¨à¤¾ à¤¬à¤‚à¤¦ à¤¨à¤¹à¥€à¤‚ à¤¹à¥‹ à¤¸à¤•à¤¾à¥¤ à¤•à¥ƒà¤ªà¤¯à¤¾ à¤®à¤¾à¤‡à¤•à¥à¤°à¥‹à¤«à¤¼à¥‹à¤¨ à¤…à¤¨à¥à¤®à¤¤à¤¿ à¤œà¤¾à¤‚à¤šà¥‡à¤‚à¥¤' : 'Listening could not be stopped. Check microphone permissions.'),
     })
   }
 
@@ -451,7 +452,7 @@ function App() {
       setVoiceEntry({
         medicineId,
         status: 'unavailable',
-        message: language === 'hi-IN' ? 'इस ब्राउज़र में वॉइस पहचान उपलब्ध नहीं है। कृपया जानकारी टाइप करें।' : 'Speech recognition is unavailable in this browser. Please type the details.',
+        message: language === 'hi-IN' ? 'à¤‡à¤¸ à¤¬à¥à¤°à¤¾à¤‰à¤œà¤¼à¤° à¤®à¥‡à¤‚ à¤µà¥‰à¤‡à¤¸ à¤ªà¤¹à¤šà¤¾à¤¨ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ à¤•à¥ƒà¤ªà¤¯à¤¾ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'Speech recognition is unavailable in this browser. Please type the details.',
       })
       return
     }
@@ -459,7 +460,7 @@ function App() {
       setVoiceEntry({
         medicineId,
         status: 'unavailable',
-        message: language === 'hi-IN' ? 'माइक्रोफ़ोन उपलब्ध नहीं है। कृपया जानकारी टाइप करें।' : 'Microphone access is unavailable. Please type the details.',
+        message: language === 'hi-IN' ? 'à¤®à¤¾à¤‡à¤•à¥à¤°à¥‹à¤«à¤¼à¥‹à¤¨ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ à¤•à¥ƒà¤ªà¤¯à¤¾ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'Microphone access is unavailable. Please type the details.',
       })
       return
     }
@@ -477,7 +478,7 @@ function App() {
           setVoiceEntry({
             medicineId,
             status: 'error',
-            message: language === 'hi-IN' ? 'पिछला माइक्रोफ़ोन सत्र बंद नहीं हो सका।' : 'The previous microphone session could not be stopped.',
+            message: language === 'hi-IN' ? 'à¤ªà¤¿à¤›à¤²à¤¾ à¤®à¤¾à¤‡à¤•à¥à¤°à¥‹à¤«à¤¼à¥‹à¤¨ à¤¸à¤¤à¥à¤° à¤¬à¤‚à¤¦ à¤¨à¤¹à¥€à¤‚ à¤¹à¥‹ à¤¸à¤•à¤¾à¥¤' : 'The previous microphone session could not be stopped.',
           })
           return
         }
@@ -487,7 +488,7 @@ function App() {
     setVoiceEntry({
       medicineId,
       status: 'requesting',
-      message: language === 'hi-IN' ? 'माइक्रोफ़ोन की अनुमति मांगी जा रही है…' : 'Requesting microphone permission…',
+      message: language === 'hi-IN' ? 'à¤®à¤¾à¤‡à¤•à¥à¤°à¥‹à¤«à¤¼à¥‹à¤¨ à¤•à¥€ à¤…à¤¨à¥à¤®à¤¤à¤¿ à¤®à¤¾à¤‚à¤—à¥€ à¤œà¤¾ à¤°à¤¹à¥€ à¤¹à¥ˆâ€¦' : 'Requesting microphone permissionâ€¦',
     })
 
     try {
@@ -507,7 +508,7 @@ function App() {
           setVoiceEntry({
             medicineId,
             status: 'error',
-            message: language === 'hi-IN' ? 'आवाज़ समझ में नहीं आई। फिर कोशिश करें या टाइप करें।' : 'No speech was recognized. Try again or type the details.',
+            message: language === 'hi-IN' ? 'à¤†à¤µà¤¾à¤œà¤¼ à¤¸à¤®à¤ à¤®à¥‡à¤‚ à¤¨à¤¹à¥€à¤‚ à¤†à¤ˆà¥¤ à¤«à¤¿à¤° à¤•à¥‹à¤¶à¤¿à¤¶ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'No speech was recognized. Try again or type the details.',
           })
           return
         }
@@ -515,7 +516,7 @@ function App() {
         setVoiceEntry({
           medicineId,
           status: 'recognized',
-          message: language === 'hi-IN' ? 'आवाज़ पहचानी गई और फ़ील्ड में भरी गई। यह पुष्टि नहीं है—मूल पर्चे से जांचें।' : 'Speech recognized and added to the field. This is not verification—check the original prescription.',
+          message: language === 'hi-IN' ? 'à¤†à¤µà¤¾à¤œà¤¼ à¤ªà¤¹à¤šà¤¾à¤¨à¥€ à¤—à¤ˆ à¤”à¤° à¤«à¤¼à¥€à¤²à¥à¤¡ à¤®à¥‡à¤‚ à¤­à¤°à¥€ à¤—à¤ˆà¥¤ à¤¯à¤¹ à¤ªà¥à¤·à¥à¤Ÿà¤¿ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆâ€”à¤®à¥‚à¤² à¤ªà¤°à¥à¤šà¥‡ à¤¸à¥‡ à¤œà¤¾à¤‚à¤šà¥‡à¤‚à¥¤' : 'Speech recognized and added to the field. This is not verificationâ€”check the original prescription.',
         })
       }
       recognition.onerror = (event) => {
@@ -526,8 +527,8 @@ function App() {
           medicineId,
           status: denied ? 'denied' : 'error',
           message: denied
-            ? (language === 'hi-IN' ? 'माइक्रोफ़ोन की अनुमति नहीं मिली। ब्राउज़र सेटिंग में अनुमति दें या टाइप करें।' : 'Microphone permission was denied. Allow it in browser settings or type the details.')
-            : (language === 'hi-IN' ? 'आवाज़ पहचान में समस्या हुई। फिर कोशिश करें या टाइप करें।' : 'Speech recognition failed. Try again or type the details.'),
+            ? (language === 'hi-IN' ? 'à¤®à¤¾à¤‡à¤•à¥à¤°à¥‹à¤«à¤¼à¥‹à¤¨ à¤•à¥€ à¤…à¤¨à¥à¤®à¤¤à¤¿ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¥€à¥¤ à¤¬à¥à¤°à¤¾à¤‰à¤œà¤¼à¤° à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤— à¤®à¥‡à¤‚ à¤…à¤¨à¥à¤®à¤¤à¤¿ à¤¦à¥‡à¤‚ à¤¯à¤¾ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'Microphone permission was denied. Allow it in browser settings or type the details.')
+            : (language === 'hi-IN' ? 'à¤†à¤µà¤¾à¤œà¤¼ à¤ªà¤¹à¤šà¤¾à¤¨ à¤®à¥‡à¤‚ à¤¸à¤®à¤¸à¥à¤¯à¤¾ à¤¹à¥à¤ˆà¥¤ à¤«à¤¿à¤° à¤•à¥‹à¤¶à¤¿à¤¶ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'Speech recognition failed. Try again or type the details.'),
         })
       }
       recognition.onend = () => {
@@ -537,7 +538,7 @@ function App() {
           ? {
             medicineId,
             status: 'error',
-            message: language === 'hi-IN' ? 'कोई आवाज़ पहचानी नहीं गई। फिर कोशिश करें या टाइप करें।' : 'No speech was recognized. Try again or type the details.',
+            message: language === 'hi-IN' ? 'à¤•à¥‹à¤ˆ à¤†à¤µà¤¾à¤œà¤¼ à¤ªà¤¹à¤šà¤¾à¤¨à¥€ à¤¨à¤¹à¥€à¤‚ à¤—à¤ˆà¥¤ à¤«à¤¿à¤° à¤•à¥‹à¤¶à¤¿à¤¶ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'No speech was recognized. Try again or type the details.',
           }
           : current)
       }
@@ -545,7 +546,7 @@ function App() {
       setVoiceEntry({
         medicineId,
         status: 'listening',
-        message: language === 'hi-IN' ? 'सुन रहे हैं…' : 'Listening…',
+        message: language === 'hi-IN' ? 'à¤¸à¥à¤¨ à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚â€¦' : 'Listeningâ€¦',
       })
     } catch (microphoneError) {
       if (requestId !== voiceRequestRef.current) return
@@ -555,8 +556,8 @@ function App() {
         medicineId,
         status: denied ? 'denied' : 'error',
         message: denied
-          ? (language === 'hi-IN' ? 'माइक्रोफ़ोन की अनुमति नहीं मिली। ब्राउज़र सेटिंग में अनुमति दें या टाइप करें।' : 'Microphone permission was denied. Allow it in browser settings or type the details.')
-          : (language === 'hi-IN' ? 'माइक्रोफ़ोन शुरू नहीं हो सका। फिर कोशिश करें या टाइप करें।' : 'Could not start the microphone. Try again or type the details.'),
+          ? (language === 'hi-IN' ? 'à¤®à¤¾à¤‡à¤•à¥à¤°à¥‹à¤«à¤¼à¥‹à¤¨ à¤•à¥€ à¤…à¤¨à¥à¤®à¤¤à¤¿ à¤¨à¤¹à¥€à¤‚ à¤®à¤¿à¤²à¥€à¥¤ à¤¬à¥à¤°à¤¾à¤‰à¤œà¤¼à¤° à¤¸à¥‡à¤Ÿà¤¿à¤‚à¤— à¤®à¥‡à¤‚ à¤…à¤¨à¥à¤®à¤¤à¤¿ à¤¦à¥‡à¤‚ à¤¯à¤¾ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'Microphone permission was denied. Allow it in browser settings or type the details.')
+          : (language === 'hi-IN' ? 'à¤®à¤¾à¤‡à¤•à¥à¤°à¥‹à¤«à¤¼à¥‹à¤¨ à¤¶à¥à¤°à¥‚ à¤¨à¤¹à¥€à¤‚ à¤¹à¥‹ à¤¸à¤•à¤¾à¥¤ à¤«à¤¿à¤° à¤•à¥‹à¤¶à¤¿à¤¶ à¤•à¤°à¥‡à¤‚ à¤¯à¤¾ à¤Ÿà¤¾à¤‡à¤ª à¤•à¤°à¥‡à¤‚à¥¤' : 'Could not start the microphone. Try again or type the details.'),
       })
     }
   }
@@ -622,7 +623,7 @@ function App() {
     speechRequestRef.current += 1
     window.speechSynthesis?.cancel()
     setIsSpeaking(false)
-    setSpeechMessage(language === 'hi-IN' ? 'आवाज़ रोक दी गई।' : 'Speech stopped.')
+    setSpeechMessage(language === 'hi-IN' ? 'à¤†à¤µà¤¾à¤œà¤¼ à¤°à¥‹à¤• à¤¦à¥€ à¤—à¤ˆà¥¤' : 'Speech stopped.')
   }
 
   function listen() {
@@ -639,7 +640,7 @@ function App() {
     ))
     if (!readableMedicines.length) {
       setSpeechMessage(language === 'hi-IN'
-        ? 'पढ़ने के लिए कोई पुष्ट दवा विवरण नहीं है। पहले नाम और खुराक को मूल पर्चे से जांचें।'
+        ? 'à¤ªà¤¢à¤¼à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤•à¥‹à¤ˆ à¤ªà¥à¤·à¥à¤Ÿ à¤¦à¤µà¤¾ à¤µà¤¿à¤µà¤°à¤£ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¥¤ à¤ªà¤¹à¤²à¥‡ à¤¨à¤¾à¤® à¤”à¤° à¤–à¥à¤°à¤¾à¤• à¤•à¥‹ à¤®à¥‚à¤² à¤ªà¤°à¥à¤šà¥‡ à¤¸à¥‡ à¤œà¤¾à¤‚à¤šà¥‡à¤‚à¥¤'
         : 'There are no verified medicine details to read. First check the name and dose against the original prescription.')
       return
     }
@@ -647,7 +648,7 @@ function App() {
     const unverifiedCount = medicines.length - readableMedicines.length
     const speech = [
       language === 'hi-IN'
-        ? 'यह केवल जांचे गए विवरणों का वाचन है, चिकित्सा सलाह नहीं। दवा लेने से पहले डॉक्टर या फार्मासिस्ट से पुष्टि करें।'
+        ? 'à¤¯à¤¹ à¤•à¥‡à¤µà¤² à¤œà¤¾à¤‚à¤šà¥‡ à¤—à¤ à¤µà¤¿à¤µà¤°à¤£à¥‹à¤‚ à¤•à¤¾ à¤µà¤¾à¤šà¤¨ à¤¹à¥ˆ, à¤šà¤¿à¤•à¤¿à¤¤à¥à¤¸à¤¾ à¤¸à¤²à¤¾à¤¹ à¤¨à¤¹à¥€à¤‚à¥¤ à¤¦à¤µà¤¾ à¤²à¥‡à¤¨à¥‡ à¤¸à¥‡ à¤ªà¤¹à¤²à¥‡ à¤¡à¥‰à¤•à¥à¤Ÿà¤° à¤¯à¤¾ à¤«à¤¾à¤°à¥à¤®à¤¾à¤¸à¤¿à¤¸à¥à¤Ÿ à¤¸à¥‡ à¤ªà¥à¤·à¥à¤Ÿà¤¿ à¤•à¤°à¥‡à¤‚à¥¤'
         : 'Only details marked as checked are read. This is not medical advice. Confirm with a doctor or pharmacist before use.',
       ...readableMedicines.map((medicine) => {
         const name = getConfirmedField(medicine, 'name')
@@ -657,13 +658,13 @@ function App() {
         const timing = getConfirmedField(medicine, 'timing')
         const instructions = getConfirmedField(medicine, language === 'hi-IN' ? 'hindi' : 'instructions')
         if (language === 'hi-IN') {
-          return `${name}. खुराक: ${dose}. कितनी बार: ${frequency || 'पुष्टि आवश्यक, डॉक्टर या फार्मासिस्ट से पूछें'}. अवधि: ${duration || 'पुष्टि आवश्यक, डॉक्टर या फार्मासिस्ट से पूछें'}. ${timing ? `समय: ${timing}.` : ''} निर्देश: ${instructions || 'स्पष्ट नहीं हैं। डॉक्टर या फार्मासिस्ट से पुष्टि करें।'}`
+          return `${name}. à¤–à¥à¤°à¤¾à¤•: ${dose}. à¤•à¤¿à¤¤à¤¨à¥€ à¤¬à¤¾à¤°: ${frequency || 'à¤ªà¥à¤·à¥à¤Ÿà¤¿ à¤†à¤µà¤¶à¥à¤¯à¤•, à¤¡à¥‰à¤•à¥à¤Ÿà¤° à¤¯à¤¾ à¤«à¤¾à¤°à¥à¤®à¤¾à¤¸à¤¿à¤¸à¥à¤Ÿ à¤¸à¥‡ à¤ªà¥‚à¤›à¥‡à¤‚'}. à¤…à¤µà¤§à¤¿: ${duration || 'à¤ªà¥à¤·à¥à¤Ÿà¤¿ à¤†à¤µà¤¶à¥à¤¯à¤•, à¤¡à¥‰à¤•à¥à¤Ÿà¤° à¤¯à¤¾ à¤«à¤¾à¤°à¥à¤®à¤¾à¤¸à¤¿à¤¸à¥à¤Ÿ à¤¸à¥‡ à¤ªà¥‚à¤›à¥‡à¤‚'}. ${timing ? `à¤¸à¤®à¤¯: ${timing}.` : ''} à¤¨à¤¿à¤°à¥à¤¦à¥‡à¤¶: ${instructions || 'à¤¸à¥à¤ªà¤·à¥à¤Ÿ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¤‚à¥¤ à¤¡à¥‰à¤•à¥à¤Ÿà¤° à¤¯à¤¾ à¤«à¤¾à¤°à¥à¤®à¤¾à¤¸à¤¿à¤¸à¥à¤Ÿ à¤¸à¥‡ à¤ªà¥à¤·à¥à¤Ÿà¤¿ à¤•à¤°à¥‡à¤‚à¥¤'}`
         }
         return `${name}. Dose: ${dose}. Frequency: ${frequency || 'not confirmed; check with a doctor or pharmacist'}. Duration: ${duration || 'not confirmed; check with a doctor or pharmacist'}. ${timing ? `Timing: ${timing}.` : ''} Instructions: ${instructions || 'not confirmed; check with a doctor or pharmacist'}.`
       }),
       ...(unverifiedCount > 0
         ? [language === 'hi-IN'
-          ? 'कुछ दवाओं के विवरण पुष्ट नहीं हैं और उन्हें निर्देशों के रूप में नहीं पढ़ा गया। डॉक्टर या फार्मासिस्ट से पुष्टि करें।'
+          ? 'à¤•à¥à¤› à¤¦à¤µà¤¾à¤“à¤‚ à¤•à¥‡ à¤µà¤¿à¤µà¤°à¤£ à¤ªà¥à¤·à¥à¤Ÿ à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆà¤‚ à¤”à¤° à¤‰à¤¨à¥à¤¹à¥‡à¤‚ à¤¨à¤¿à¤°à¥à¤¦à¥‡à¤¶à¥‹à¤‚ à¤•à¥‡ à¤°à¥‚à¤ª à¤®à¥‡à¤‚ à¤¨à¤¹à¥€à¤‚ à¤ªà¤¢à¤¼à¤¾ à¤—à¤¯à¤¾à¥¤ à¤¡à¥‰à¤•à¥à¤Ÿà¤° à¤¯à¤¾ à¤«à¤¾à¤°à¥à¤®à¤¾à¤¸à¤¿à¤¸à¥à¤Ÿ à¤¸à¥‡ à¤ªà¥à¤·à¥à¤Ÿà¤¿ à¤•à¤°à¥‡à¤‚à¥¤'
           : 'Some medicines are unverified and were not read as instructions. Confirm them with a doctor or pharmacist.']
         : []),
     ].join(' ')
@@ -707,7 +708,7 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <a className="brand" href="#" aria-label="MedSafe home">
-          <span className="brand-icon" aria-hidden="true">✚</span>
+          <span className="brand-icon" aria-hidden="true">âœš</span>
           <span>Med<span>Safe</span></span>
         </a>
         <span className="topbar-note">{t('A little help, more peace of mind')}</span>
@@ -728,8 +729,10 @@ function App() {
       <nav className="app-tabs" role="tablist" aria-label="MedSafe sections">
         <button type="button" role="tab" aria-selected={activeScreen === 'prescription'} className={activeScreen === 'prescription' ? 'active' : ''} onClick={() => setActiveScreen('prescription')}>{t('Prescription')}</button>
         <button type="button" role="tab" aria-selected={activeScreen === 'health'} className={activeScreen === 'health' ? 'active' : ''} onClick={() => setActiveScreen('health')}>{t('My Health')}</button>
-        <button type="button" role="tab" aria-selected={activeScreen === 'lab'} className={activeScreen === 'lab' ? 'active' : ''} onClick={() => setActiveScreen('lab')}><span className="lab-tab-icon" aria-hidden="true">🧪</span><span>{t('Lab Report')}</span></button>
-      </nav>
+        <button type="button" role="tab" aria-selected={activeScreen === 'lab'} className={activeScreen === 'lab' ? 'active' : ''} onClick={() => setActiveScreen('lab')}><span className="lab-tab-icon" aria-hidden="true">ðŸ§ª</span><span>{t('Lab Report')}</span></button>
+      
+          <button type="button" role="tab" aria-selected={activeScreen === 'reminders'} className={activeScreen === 'reminders' ? 'active' : ''} onClick={() => setActiveScreen('reminders')}><span aria-hidden="true">⏰</span><span>{language === 'hi-IN' ? 'रिमाइंडर' : 'Reminders'}</span></button>
+        </nav>
 
       <main hidden={activeScreen !== 'prescription'}>
         <section className="hero">
@@ -737,15 +740,15 @@ function App() {
             <span className="eyebrow"><span className="status-dot" /> {t('MADE FOR FAMILIES')}</span>
             <h1>{t('Medicine routines,')}<br /><em>{t('made clearer.')}</em></h1>
             <p>{t('Turn a prescription into a simple schedule you can understand, check and share.')}</p>
-            <div className="hero-note"><span aria-hidden="true">♡</span> {t('A helpful companion, not a replacement for your doctor.')}</div>
+            <div className="hero-note"><span aria-hidden="true">â™¡</span> {t('A helpful companion, not a replacement for your doctor.')}</div>
           </div>
           <div className="hero-art" aria-hidden="true">
             <div className="art-sun" />
             <div className="art-leaf leaf-one" />
             <div className="art-leaf leaf-two" />
             <div className="art-pill"><span>+</span></div>
-            <div className="art-sparkle sparkle-one">✦</div>
-            <div className="art-sparkle sparkle-two">✦</div>
+            <div className="art-sparkle sparkle-one">âœ¦</div>
+            <div className="art-sparkle sparkle-two">âœ¦</div>
           </div>
         </section>
 
@@ -756,12 +759,12 @@ function App() {
           </div>
           <div className="upload-actions">
             <label className={`button button-primary upload-button ${loading ? 'disabled' : ''}`}>
-              <span aria-hidden="true">↥</span> {loading ? t('Reading prescription…') : t('Upload or take a photo')}
+              <span aria-hidden="true">â†¥</span> {loading ? t('Reading prescriptionâ€¦') : t('Upload or take a photo')}
               <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" onChange={handleFileSelection} disabled={loading} />
             </label>
             <span className="or-divider">{t('or')}</span>
             <button type="button" className="button button-secondary" onClick={loadDemo} disabled={loading}>
-              <span aria-hidden="true">✳</span> {t('Try demo prescription')}
+              <span aria-hidden="true">âœ³</span> {t('Try demo prescription')}
             </button>
           </div>
           {previewUrl && (
@@ -771,13 +774,13 @@ function App() {
               <strong>{t('Photo ready to review')}</strong>
                 <span>{selectedImage?.name}</span>
                 <button type="button" className="button button-primary" onClick={() => void analyzePrescription()} disabled={loading}>
-                {loading ? t('Reading prescription…') : t('Analyze prescription')}
+                {loading ? t('Reading prescriptionâ€¦') : t('Analyze prescription')}
                 </button>
               </div>
             </div>
           )}
-          <div className="privacy-note"><span aria-hidden="true">▣</span> {t('Images are sent to Google Gemini for reading. Avoid including patient names or personal details; MedSafe does not save images.')}</div>
-          {loading && <div className="loading-message"><span className="spinner" /> {t('Carefully reading the prescription…')}</div>}
+          <div className="privacy-note"><span aria-hidden="true">â–£</span> {t('Images are sent to Google Gemini for reading. Avoid including patient names or personal details; MedSafe does not save images.')}</div>
+          {loading && <div className="loading-message"><span className="spinner" /> {t('Carefully reading the prescriptionâ€¦')}</div>}
           {error && <div className="error-message" role="alert">{t(error)}</div>}
         </section>
 
@@ -790,10 +793,10 @@ function App() {
                   <div>
                     <h2 id="medicines-heading">{t('Your medicine list')}</h2>
                     <p>{t('Check every detail against the original prescription.')}</p>
-                    {prescriptionSource === 'ai' && <span className="demo-result-badge">{t('AI transcription — not verified; check every detail against the original.')}</span>}
-                    {prescriptionSource === 'demo' && <span className="demo-result-badge">{t('Sample only — not read from your photo')}</span>}
-                    {prescriptionSource === 'unknown' && <span className="demo-result-badge">{t('Saved list — source not recorded; verify every detail against the original')}</span>}
-                    {selectedImage && !isSelectedImageAnalyzed && prescriptionSource !== 'demo' && <span className="demo-result-badge">{t('New photo not analyzed yet — these are previous results')}</span>}
+                    {prescriptionSource === 'ai' && <span className="demo-result-badge">{t('AI transcription â€” not verified; check every detail against the original.')}</span>}
+                    {prescriptionSource === 'demo' && <span className="demo-result-badge">{t('Sample only â€” not read from your photo')}</span>}
+                    {prescriptionSource === 'unknown' && <span className="demo-result-badge">{t('Saved list â€” source not recorded; verify every detail against the original')}</span>}
+                    {selectedImage && !isSelectedImageAnalyzed && prescriptionSource !== 'demo' && <span className="demo-result-badge">{t('New photo not analyzed yet â€” these are previous results')}</span>}
                   </div>
                 </div>
               </div>
@@ -823,7 +826,7 @@ function App() {
                   onClick={() => void checkInteractions()}
                   disabled={interactionLoading || medicines.length > 10 || prescriptionSource === 'demo' || Boolean(selectedImage && !isSelectedImageAnalyzed) || medicines.some((medicine) => !medicine.verified || !medicine.name.trim())}
                 >
-                  {interactionLoading ? t('Checking FDA labels…') : t('Check FDA labels')}
+                  {interactionLoading ? t('Checking FDA labelsâ€¦') : t('Check FDA labels')}
                 </button>
                 {medicines.length > 10 && <p className="interaction-result-error">{t('The FDA label lookup supports up to 10 medicines at a time.')}</p>}
                 {interactionError && <p className="interaction-result-error" role="alert">{t(interactionError)}</p>}
@@ -835,7 +838,7 @@ function App() {
                         <ul>
                           {interactionCheck.mentions.map((mention, index) => (
                             <li key={`${mention.medicines.join('-')}-${index}`}>
-                              <b>{mention.medicines.join(' + ')}</b>: “{mention.excerpt}”
+                              <b>{mention.medicines.join(' + ')}</b>: â€œ{mention.excerpt}â€
                             </li>
                           ))}
                         </ul>
@@ -852,7 +855,7 @@ function App() {
               </section>
 
               {unclear.length > 0 && (
-                <div className="unclear-note" role="alert"><strong>{t('NEEDS VERIFICATION — ask a doctor or pharmacist if unclear:')}</strong> {unclear.join(' · ')}</div>
+                <div className="unclear-note" role="alert"><strong>{t('NEEDS VERIFICATION â€” ask a doctor or pharmacist if unclear:')}</strong> {unclear.join(' Â· ')}</div>
               )}
 
               <div className="medicine-list">
@@ -868,13 +871,13 @@ function App() {
                       <div className="medicine-card-heading">
                         <div className="medicine-number">{String(index + 1).padStart(2, '0')}</div>
                         <div className="medicine-title-wrap">
-                          <h3>{medicine.name || t('Medicine name — NEEDS VERIFICATION')}</h3>
+                          <h3>{medicine.name || t('Medicine name â€” NEEDS VERIFICATION')}</h3>
                           {medicine.generic_name && <p className="generic-subtitle">{medicine.generic_name}</p>}
                         </div>
                         {!medicine.verified && (
                           <span className="confirm-badge"><span aria-hidden="true">!</span> {t('NEEDS VERIFICATION')}</span>
                         )}
-                        {medicine.verified && <span className="verified-badge">{t('Checked against original · saved on this device')}</span>}
+                        {medicine.verified && <span className="verified-badge">{t('Checked against original Â· saved on this device')}</span>}
                       </div>
                       <div className="medicine-verification">
                         {isEditing ? (
@@ -938,7 +941,7 @@ function App() {
                         ))}
                         <div className="confidence-status">
                           <span>{t('AI reading confidence')}</span>
-                          <strong>{Math.round(Number(medicine.confidence || 0) * 100)}% · {t('Always verify manually')}</strong>
+                          <strong>{Math.round(Number(medicine.confidence || 0) * 100)}% Â· {t('Always verify manually')}</strong>
                         </div>
                         <label>
                           <span>{t('Expiry date')}</span>
@@ -979,7 +982,7 @@ function App() {
                       {isExpiring(medicine.expiry_date) && <div className="expiry-note">{t('Check this medicine: it expires within 30 days.')}</div>}
                       <p className="generic-note">{t('No substitution is suggested. A pharmacist must confirm the same active ingredient, strength, dosage form, route, and release type before considering any alternative.')}</p>
                       <div className="schedule">
-                        <div className="schedule-title"><span className="schedule-icon">◷</span><strong>{t('Daily schedule')}</strong></div>
+                        <div className="schedule-title"><span className="schedule-icon">â—·</span><strong>{t('Daily schedule')}</strong></div>
                         {scheduleSlots.length ? (
                           <div className="dose-list">
                             {scheduleSlots.map((slot) => {
@@ -989,7 +992,7 @@ function App() {
                                   <input type="checkbox" checked={Boolean(taken[key])} onChange={() => toggleTaken(medicine.id, slot)} />
                                   <span className="custom-checkbox" />
                                   <span className="dose-time">{t(slotLabels[slot])}{language === 'hi-IN' && <small>{t(slotLabels[slot])}</small>}</span>
-                                  <span className="dose-detail">{medicine.dose || t('Dose')}{medicine.timing ? ` · ${medicine.timing}` : ''}</span>
+                                  <span className="dose-detail">{medicine.dose || t('Dose')}{medicine.timing ? ` Â· ${medicine.timing}` : ''}</span>
                                   <span className="taken-label">{t(taken[key] ? 'Taken' : 'Mark as taken')}</span>
                                 </label>
                               )
@@ -1006,9 +1009,9 @@ function App() {
                 })}
               </div>
               <div className="action-row">
-                <button type="button" className="button button-primary listen-button" onClick={listen} disabled={isSpeaking}><span aria-hidden="true">◖</span> {t('Listen in {language}', { language: t(language === 'hi-IN' ? 'Hindi' : 'English') })}</button>
+                <button type="button" className="button button-primary listen-button" onClick={listen} disabled={isSpeaking}><span aria-hidden="true">â—–</span> {t('Listen in {language}', { language: t(language === 'hi-IN' ? 'Hindi' : 'English') })}</button>
                 {isSpeaking && <button type="button" className="button button-secondary" onClick={stopSpeaking}>{t('Stop speaking')}</button>}
-                <button type="button" className="button button-whatsapp" onClick={shareOnWhatsApp}><span aria-hidden="true">↗</span> {t('Send to family on WhatsApp')}</button>
+                <button type="button" className="button button-whatsapp" onClick={shareOnWhatsApp}><span aria-hidden="true">â†—</span> {t('Send to family on WhatsApp')}</button>
               </div>
               {speechMessage && <p className="speech-status" role="status" aria-live="polite">{t(speechMessage)}</p>}
               <p className="prescription-disclaimer">{t('Decision-support only. Verify every medicine with a healthcare professional before use. A missing interaction warning does not mean a combination is safe. Never change or stop a prescribed medicine based on this tool.')}</p>
@@ -1036,8 +1039,12 @@ function App() {
         <LabReport />
       </div>
 
+      <div className="reminders-screen-wrap" hidden={activeScreen !== 'reminders'}>
+        <MedicineReminder visible={activeScreen === 'reminders'} />
+      </div>
+
       <footer className="footer">
-        <div className="footer-mark">✚ <strong>MedSafe</strong></div>
+        <div className="footer-mark">âœš <strong>MedSafe</strong></div>
         <p>{t('This is not medical advice. Always confirm with your doctor or pharmacist.')}</p>
         <span>{t('Made with care for families in India')}</span>
       </footer>
@@ -1046,3 +1053,4 @@ function App() {
 }
 
 export default App
+

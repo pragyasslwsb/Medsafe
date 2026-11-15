@@ -1,0 +1,299 @@
+import { useEffect, useRef, useState } from "react";
+import "./MedicineReminder.css";
+
+const KEY = "medsafe_reminders_v2";
+const GRACE = 2 * 60 * 1000; // ring only if we are within 2 minutes of the time
+const SNOOZE = 10 * 60 * 1000; // snooze for 10 minutes
+
+const pad = (n) => String(n).padStart(2, "0");
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+
+function addDay(ts) {
+  const d = new Date(ts);
+  d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+function loadReminders() {
+  try {
+    const data = JSON.parse(localStorage.getItem(KEY));
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function formatLeft(ms) {
+  const s = Math.floor(Math.max(ms, 0) / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return (d ? d + "d " : "") + pad(h) + ":" + pad(m) + ":" + pad(sec);
+}
+
+function formatWhen(r) {
+  const d = new Date(r.nextDue);
+  const day = d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return (
+    day + " at " + pad(d.getHours()) + ":" + pad(d.getMinutes()) +
+    (r.repeat === "daily" ? ", repeats every day" : "")
+  );
+}
+
+function leftText(r, now) {
+  if (!r.enabled) return "Paused";
+  if (r.snoozeUntil) return "Snoozed, rings in " + formatLeft(r.snoozeUntil - now);
+  if (r.status === "done") return "Done";
+  if (r.status === "missed") return "Missed";
+  return "Time left: " + formatLeft(r.nextDue - now);
+}
+
+function describe(r) {
+  return "Time to take " + r.name + (r.dose ? " (" + r.dose + ")" : "") + ".";
+}
+
+function beep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    osc.frequency.value = 880;
+    osc.connect(ctx.destination);
+    osc.start();
+    setTimeout(() => {
+      osc.stop();
+      ctx.close();
+    }, 400);
+  } catch {
+    // sound is optional
+  }
+}
+
+function notify(text) {
+  beep();
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification("MedSafe reminder", { body: text });
+    } catch {
+      // notification is optional
+    }
+  }
+}
+
+const emptyForm = () => ({ name: "", dose: "", date: todayStr(), time: "", repeat: "once" });
+
+export default function MedicineReminder() {
+  const [reminders, setReminders] = useState(loadReminders);
+  const [now, setNow] = useState(() => Date.now());
+  const [alerts, setAlerts] = useState([]);
+  const [form, setForm] = useState(emptyForm);
+  const [error, setError] = useState("");
+  const remindersRef = useRef(reminders);
+
+  // Save to the browser every time the list changes
+  useEffect(() => {
+    remindersRef.current = reminders;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(reminders));
+    } catch {
+      // storage is optional
+    }
+  }, [reminders]);
+
+  // Runs every second: updates the timers and rings alerts
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+
+      const current = remindersRef.current;
+      const fired = [];
+
+      const next = current.map((r) => {
+        if (!r.enabled) return r;
+
+        if (r.snoozeUntil) {
+          if (t < r.snoozeUntil) return r;
+          fired.push(r);
+          return { ...r, snoozeUntil: null };
+        }
+
+        if (r.status !== "upcoming" || t < r.nextDue) return r;
+
+        const late = t - r.nextDue;
+        if (late <= GRACE) fired.push(r);
+
+        if (r.repeat === "daily") {
+          let due = r.nextDue;
+          while (due <= t) due = addDay(due);
+          return { ...r, nextDue: due };
+        }
+        return { ...r, status: late <= GRACE ? "done" : "missed" };
+      });
+
+      if (next.some((r, i) => r !== current[i])) {
+        remindersRef.current = next;
+        setReminders(next);
+      }
+
+      if (fired.length) {
+        setAlerts((a) => [
+          ...a,
+          ...fired.map((r) => ({ id: r.id + "-" + t, rid: r.id, text: describe(r) })),
+        ]);
+        fired.forEach((r) => notify(describe(r)));
+      }
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, []);
+
+  const setField = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+
+    const name = form.name.trim();
+    if (!name || !form.date || !form.time) {
+      setError("Please fill the medicine name, date and time.");
+      return;
+    }
+
+    let due = new Date(form.date + "T" + form.time).getTime();
+    if (Number.isNaN(due)) {
+      setError("That date or time is not valid.");
+      return;
+    }
+
+    const t = Date.now();
+    if (form.repeat === "once" && due <= t) {
+      setError("That time has already passed. Choose a time in the future.");
+      return;
+    }
+    if (form.repeat === "daily") {
+      while (due <= t) due = addDay(due);
+    }
+
+    const item = {
+      id: t,
+      name,
+      dose: form.dose.trim(),
+      nextDue: due,
+      repeat: form.repeat,
+      enabled: true,
+      status: "upcoming",
+      snoozeUntil: null,
+    };
+
+    setReminders((rs) => [...rs, item].sort((a, b) => a.nextDue - b.nextDue));
+    setForm(emptyForm());
+
+    // Ask once for permission to show browser notifications
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }
+
+  const toggle = (id, enabled) =>
+    setReminders((rs) => rs.map((r) => (r.id === id ? { ...r, enabled } : r)));
+
+  const remove = (id) => setReminders((rs) => rs.filter((r) => r.id !== id));
+
+  const dismiss = (alertId) => setAlerts((a) => a.filter((x) => x.id !== alertId));
+
+  function snooze(a) {
+    setReminders((rs) =>
+      rs.map((r) => (r.id === a.rid ? { ...r, snoozeUntil: Date.now() + SNOOZE } : r))
+    );
+    dismiss(a.id);
+  }
+
+  return (
+    <section className="reminder" id="medicine-reminder">
+      <h2>Medicine reminders</h2>
+
+      <div className="rm-alerts" role="alert" aria-live="assertive">
+        {alerts.map((a) => (
+          <div className="rm-alert" key={a.id}>
+            <p>{a.text}</p>
+            <button type="button" onClick={() => dismiss(a.id)}>
+              Taken
+            </button>
+            <button type="button" className="rm-secondary" onClick={() => snooze(a)}>
+              Snooze 10 min
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <label>
+          Medicine name
+          <input type="text" required maxLength={60} value={form.name} onChange={setField("name")} />
+        </label>
+        <label>
+          Dose (optional)
+          <input
+            type="text"
+            maxLength={40}
+            placeholder="1 tablet"
+            value={form.dose}
+            onChange={setField("dose")}
+          />
+        </label>
+        <label>
+          Date
+          <input type="date" required min={todayStr()} value={form.date} onChange={setField("date")} />
+        </label>
+        <label>
+          Time
+          <input type="time" required value={form.time} onChange={setField("time")} />
+        </label>
+        <label>
+          Repeat
+          <select value={form.repeat} onChange={setField("repeat")}>
+            <option value="once">Only once</option>
+            <option value="daily">Every day</option>
+          </select>
+        </label>
+        <p className="rm-error" role="alert">
+          {error}
+        </p>
+        <button type="submit">Add reminder</button>
+      </form>
+
+      <ul className="rm-list">
+        {reminders.length === 0 && (
+          <li className="rm-empty">No reminders yet. Add your first medicine above.</li>
+        )}
+        {reminders.map((r) => (
+          <li className={"rm-item" + (r.enabled ? "" : " rm-off")} key={r.id}>
+            <div className="rm-main">
+              <div className="rm-info">
+                {r.name}
+                {r.dose ? " (" + r.dose + ")" : ""}
+              </div>
+              <div className="rm-when">{formatWhen(r)}</div>
+              <div className="rm-left">{leftText(r, now)}</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={r.enabled}
+              onChange={(e) => toggle(r.id, e.target.checked)}
+              aria-label={"Turn reminder on or off for " + r.name}
+            />
+            <button type="button" className="rm-delete" onClick={() => remove(r.id)}>
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

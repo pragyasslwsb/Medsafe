@@ -1,0 +1,1049 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import interactions from './data/interactions.json'
+import generics from './data/generics.json'
+import MyHealth from './Health.jsx'
+import LabReport from './LabReport.jsx'
+import { useLanguage } from './i18n.js'
+import './App.css'
+
+const demoPrescription = {
+  medicines: [
+    {
+      name: 'Warfarin',
+      generic_name: 'Warfarin',
+      dose: '2 mg',
+      frequency: 'Once daily',
+      timing: 'At night',
+      duration: 'As directed',
+      confidence: 0.62,
+      hindi: 'यह दवा रात को लें।',
+    },
+    {
+      name: 'Aspirin',
+      generic_name: 'Acetylsalicylic acid',
+      dose: '75 mg',
+      frequency: 'Once daily',
+      timing: 'After breakfast',
+      duration: 'As directed',
+      confidence: 0.91,
+      hindi: 'यह दवा नाश्ते के बाद लें।',
+    },
+    {
+      name: 'Glycomet',
+      generic_name: 'Metformin',
+      dose: '500 mg',
+      frequency: 'Twice daily',
+      timing: 'After breakfast and dinner',
+      duration: '30 days',
+      confidence: 0.86,
+      hindi: 'यह दवा नाश्ते और रात के खाने के बाद लें।',
+    },
+  ],
+  unclear: ['Warfarin dose - please verify against the original prescription.'],
+}
+
+const slots = ['morning', 'afternoon', 'night']
+const slotLabels = { morning: 'Morning', afternoon: 'Afternoon', night: 'Night' }
+const MEDICINES_STORAGE_KEY = 'medsafe-medicines'
+const PRESCRIPTION_SOURCE_STORAGE_KEY = 'medsafe-prescription-source'
+const TAKEN_STORAGE_KEY = 'medsafe-taken'
+const HEALTH_PROFILE_STORAGE_KEY = 'medsafe-health-profile'
+const PRESCRIPTION_TEXT_FIELDS = ['name', 'generic_name', 'dose', 'frequency', 'timing', 'duration', 'instructions', 'hindi']
+
+function writeStorage(key, value, shouldRemove = false) {
+  try {
+    if (shouldRemove) window.localStorage.removeItem(key)
+    else window.localStorage.setItem(key, JSON.stringify(value))
+  } catch (storageError) {
+    console.error('Could not update saved MedSafe data:', storageError.message)
+  }
+}
+
+function readStorage(key, fallback) {
+  try {
+    const saved = window.localStorage.getItem(key)
+    return saved ? JSON.parse(saved) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function makeMedicineId(index) {
+  return `${Date.now()}-${index}`
+}
+
+function asMedicines(items) {
+  return items.map((medicine, index) => ({
+    name: '',
+    generic_name: '',
+    dose: '',
+    frequency: '',
+    timing: '',
+    duration: '',
+    instructions: '',
+    confidence: 0,
+    hindi: '',
+    uncertain_fields: [],
+    verified: false,
+    expiry_date: '',
+    id: makeMedicineId(index),
+    ...medicine,
+  }))
+}
+
+function getConfirmedField(medicine, field) {
+  const value = typeof medicine[field] === 'string' ? medicine[field].trim() : ''
+  const uncertainFields = Array.isArray(medicine.uncertain_fields) ? medicine.uncertain_fields : []
+  const unclearPlaceholder = /^(needs verification|unknown|unclear|unreadable|illegible|not readable|not legible|n\/?a|none)$/i
+  return value && !uncertainFields.includes(field) && !unclearPlaceholder.test(value) ? value : ''
+}
+
+function getScheduleSlots(medicine) {
+  if (!medicine.verified) return []
+  const text = `${medicine.frequency || ''} ${medicine.timing || ''}`.toLowerCase()
+  if (!text.trim() || /as needed|when required|prn/.test(text)) return []
+
+  const indianSchedule = text.match(/(?:^|\s)([01])\s*[-–/]\s*([01])\s*[-–/]\s*([01])(?:\s|$)/)
+  if (indianSchedule) return slots.filter((_, index) => indianSchedule[index + 1] === '1')
+
+  const timingSlots = slots.filter((slot) => {
+    if (slot === 'morning') return /morning|breakfast|सुबह/.test(text)
+    if (slot === 'afternoon') return /afternoon|lunch|दोपहर/.test(text)
+    return /night|evening|bedtime|dinner|रात/.test(text)
+  })
+
+  return timingSlots
+}
+
+function normalize(value) {
+  return (value || '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function containsDrug(medicine, drug) {
+  const haystack = normalize(`${medicine.name} ${medicine.generic_name}`)
+  const needle = normalize(drug)
+  if (!needle) return false
+  const brandAliases = generics
+    .filter((item) => normalize(item.generic_name) === needle)
+    .map((item) => normalize(item.brand))
+  const aliases = needle === 'aspirin' ? ['acetylsalicylic acid', 'ecosprin'] : []
+  return [needle, ...brandAliases, ...aliases].some((candidate) =>
+    ` ${haystack} `.includes(` ${candidate} `),
+  )
+}
+
+function getInteractions(medicines) {
+  return interactions.filter((interaction) =>
+    interaction.drugs.every((drug) => medicines.some((medicine) => containsDrug(medicine, drug))),
+  )
+}
+
+function containsNsaid(medicines) {
+  return medicines.some((medicine) => {
+    const text = normalize(`${medicine.name} ${medicine.generic_name}`)
+    return [
+      'ibuprofen', 'brufen', 'diclofenac', 'voveran', 'naproxen',
+      'aceclofenac', 'nimesulide', 'etoricoxib', 'celecoxib',
+      'ketorolac', 'indomethacin', 'meloxicam',
+    ].some((drug) => ` ${text} `.includes(` ${drug} `))
+  })
+}
+
+function getTodayKey() {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function dateOrdinal(dateValue) {
+  const [year, month, day] = dateValue.split('-').map(Number)
+  const adjustedYear = year - (month <= 2 ? 1 : 0)
+  const era = Math.floor(adjustedYear / 400)
+  const yearOfEra = adjustedYear - era * 400
+  const shiftedMonth = month + (month > 2 ? -3 : 9)
+  const dayOfYear = Math.floor((153 * shiftedMonth + 2) / 5) + day - 1
+  const dayOfEra = yearOfEra * 365 + Math.floor(yearOfEra / 4) - Math.floor(yearOfEra / 100) + dayOfYear
+  return era * 146097 + dayOfEra
+}
+
+const TODAY_KEY = getTodayKey()
+
+function App() {
+  const { language, setLanguage, t } = useLanguage()
+  const [medicines, setMedicines] = useState(() => {
+    const saved = readStorage(MEDICINES_STORAGE_KEY, [])
+    return Array.isArray(saved) ? saved : []
+  })
+  const [unclear, setUnclear] = useState([])
+  const [taken, setTaken] = useState(() => {
+    const saved = readStorage(TAKEN_STORAGE_KEY, {})
+    return saved && typeof saved === 'object' ? saved : {}
+  })
+  const [healthProfile, setHealthProfile] = useState(() => {
+    const stored = readStorage(HEALTH_PROFILE_STORAGE_KEY, {})
+    const saved = stored && typeof stored === 'object' ? stored : {}
+    return {
+      name: typeof saved.name === 'string' ? saved.name : '',
+      conditions: Array.isArray(saved.conditions) ? saved.conditions : [],
+      familyName: typeof saved.familyName === 'string' ? saved.familyName : '',
+      familyNumber: typeof saved.familyNumber === 'string' ? saved.familyNumber : '',
+    }
+  })
+  const [prescriptionSource, setPrescriptionSource] = useState(() => {
+    const savedSource = readStorage(PRESCRIPTION_SOURCE_STORAGE_KEY, '')
+    if (['ai', 'demo', 'unknown'].includes(savedSource)) return savedSource
+    const savedMedicines = readStorage(MEDICINES_STORAGE_KEY, [])
+    return Array.isArray(savedMedicines) && savedMedicines.length ? 'unknown' : 'empty'
+  })
+  const [activeScreen, setActiveScreen] = useState('prescription')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [selectedImage, setSelectedImage] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [isSelectedImageAnalyzed, setIsSelectedImageAnalyzed] = useState(false)
+  const [editingMedicineIds, setEditingMedicineIds] = useState([])
+  const [medicineValidationErrors, setMedicineValidationErrors] = useState({})
+  const [voiceFields, setVoiceFields] = useState({})
+  const [voiceEntry, setVoiceEntry] = useState({ medicineId: '', status: 'idle', message: '' })
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [speechMessage, setSpeechMessage] = useState('')
+  const [interactionCheck, setInteractionCheck] = useState(null)
+  const [interactionLoading, setInteractionLoading] = useState(false)
+  const [interactionError, setInteractionError] = useState('')
+  const recognitionRef = useRef(null)
+  const voiceRequestRef = useRef(0)
+  const speechRequestRef = useRef(0)
+
+  useEffect(() => {
+    if (!previewUrl) return undefined
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
+
+  useEffect(() => () => {
+    voiceRequestRef.current += 1
+    recognitionRef.current?.abort()
+    window.speechSynthesis?.cancel()
+  }, [])
+
+  useEffect(() => {
+    writeStorage(MEDICINES_STORAGE_KEY, medicines, medicines.length === 0)
+  }, [medicines])
+
+  useEffect(() => {
+    writeStorage(PRESCRIPTION_SOURCE_STORAGE_KEY, prescriptionSource, prescriptionSource === 'empty')
+  }, [prescriptionSource])
+
+  useEffect(() => {
+    writeStorage(TAKEN_STORAGE_KEY, taken, Object.keys(taken).length === 0)
+  }, [taken])
+
+  useEffect(() => {
+    const hasProfile = Boolean(
+      healthProfile.name
+      || healthProfile.conditions.length
+      || healthProfile.familyName
+      || healthProfile.familyNumber,
+    )
+    writeStorage(HEALTH_PROFILE_STORAGE_KEY, healthProfile, !hasProfile)
+  }, [healthProfile])
+
+  const warnings = useMemo(
+    () => medicines.every((medicine) => medicine.verified)
+      ? getInteractions(medicines)
+      : [],
+    [medicines],
+  )
+  const showHealthNsaidWarning = medicines.every((medicine) => medicine.verified)
+    && healthProfile.conditions.some((condition) =>
+    condition === 'Diabetes' || condition === 'High BP',
+  ) && containsNsaid(medicines.filter((medicine) => medicine.verified))
+
+  function loadDemo() {
+    setError('')
+    setSelectedImage(null)
+    setPreviewUrl('')
+    setPrescriptionSource('demo')
+    setIsSelectedImageAnalyzed(false)
+    setInteractionCheck(null)
+    setInteractionError('')
+    setEditingMedicineIds([])
+    setUnclear(demoPrescription.unclear)
+    setMedicines(asMedicines(demoPrescription.medicines))
+  }
+
+  function clearLocalAppData() {
+    setMedicines([])
+    setUnclear([])
+    setTaken({})
+    setHealthProfile({ name: '', conditions: [], familyName: '', familyNumber: '' })
+    setPrescriptionSource('empty')
+    setSelectedImage(null)
+    setPreviewUrl('')
+    setIsSelectedImageAnalyzed(false)
+    setEditingMedicineIds([])
+    setMedicineValidationErrors({})
+    setInteractionCheck(null)
+    setInteractionError('')
+  }
+
+  function handleFileSelection(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setError('')
+    setSelectedImage(null)
+    setPreviewUrl('')
+    const supportedTypes = ['image/jpeg', 'image/png']
+    if (!supportedTypes.includes(file.type)) {
+      setError('Please choose a JPG, JPEG, or PNG image.')
+      return
+    }
+    if (file.size > 7 * 1024 * 1024) {
+      setError('This image is over 7 MB. Please choose a smaller image.')
+      return
+    }
+
+    setSelectedImage(file)
+    setPreviewUrl(URL.createObjectURL(file))
+    setIsSelectedImageAnalyzed(false)
+    setInteractionCheck(null)
+    setInteractionError('')
+  }
+
+  async function analyzePrescription() {
+    if (!selectedImage) {
+      setError('Choose a JPG, JPEG, or PNG image first.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(new Error('Could not read the selected image.'))
+        reader.onload = () => {
+          const result = String(reader.result || '')
+          const separator = result.indexOf(',')
+          if (separator < 0) {
+            reject(new Error('Could not prepare this image for analysis.'))
+            return
+          }
+          resolve(result.slice(separator + 1))
+        }
+        reader.readAsDataURL(selectedImage)
+      })
+      const response = await fetch('/api/read-prescription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mediaType: selectedImage.type }),
+      })
+      let result
+      try {
+        result = await response.json()
+      } catch {
+        throw new Error(`The prescription service returned an unexpected response (HTTP ${response.status}). Restart the backend with "npm run server" and try again.`)
+      }
+      if (!response.ok) throw new Error(result.error || 'Could not read the prescription.')
+      if (
+        !result
+        || !Array.isArray(result.medicines)
+        || !Array.isArray(result.unclear)
+        || result.medicines.some((medicine) => !medicine || typeof medicine !== 'object')
+      ) {
+        throw new Error('The response was not a valid prescription. Please try a clearer image.')
+      }
+      setPrescriptionSource('ai')
+      setIsSelectedImageAnalyzed(true)
+      setUnclear(result.unclear.length
+        ? result.unclear
+        : result.medicines.length
+          ? []
+          : ['No readable medicine details were identified in this image.'])
+      setMedicines(asMedicines(result.medicines))
+      setEditingMedicineIds([])
+      setInteractionCheck(null)
+      setInteractionError('')
+    } catch (uploadError) {
+      setError(uploadError.message || 'Could not read the prescription. Please try again or use the demo.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function updateMedicine(id, field, value) {
+    if (isSpeaking) stopSpeaking()
+    setMedicines((current) => current.map((medicine) => {
+      if (medicine.id !== id) return medicine
+      const uncertainFields = Array.isArray(medicine.uncertain_fields) ? medicine.uncertain_fields : []
+      const nextUncertainFields = PRESCRIPTION_TEXT_FIELDS.includes(field)
+        ? value.trim()
+          ? uncertainFields.filter((uncertainField) => uncertainField !== field)
+          : [...new Set([...uncertainFields, field])]
+        : uncertainFields
+      return { ...medicine, [field]: value, uncertain_fields: nextUncertainFields, verified: false }
+    }))
+    if (['name', 'dose'].includes(field) && value.trim()) {
+      setMedicineValidationErrors((current) => {
+        const next = { ...current }
+        delete next[id]
+        return next
+      })
+    }
+    setInteractionCheck(null)
+    setInteractionError('')
+  }
+
+  function confirmMedicine(id) {
+    const medicine = medicines.find((item) => item.id === id)
+    if (!medicine) return
+    const missingFields = ['name', 'dose'].filter((field) => (
+      !getConfirmedField(medicine, field)
+    ))
+    if (missingFields.length) {
+      setMedicineValidationErrors((current) => ({
+        ...current,
+        [id]: 'Medicine name and dose must be entered and checked against the original. If unclear, ask a doctor or pharmacist; do not guess.',
+      }))
+      setEditingMedicineIds((current) => current.includes(id) ? current : [...current, id])
+      return
+    }
+    setMedicines((current) => current.map((item) => (
+      item.id === id ? { ...item, verified: true } : item
+    )))
+    setEditingMedicineIds((current) => current.filter((medicineId) => medicineId !== id))
+    setMedicineValidationErrors((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+  }
+
+  function stopVoiceEntry(medicineId) {
+    voiceRequestRef.current += 1
+    const recognition = recognitionRef.current
+    recognitionRef.current = null
+    let stopped = true
+    try {
+      recognition?.stop()
+    } catch {
+      try {
+        recognition?.abort()
+      } catch {
+        stopped = false
+      }
+    }
+    setVoiceEntry({
+      medicineId,
+      status: stopped ? 'stopped' : 'error',
+      message: stopped
+        ? (language === 'hi-IN' ? 'सुनना रोक दिया गया। आप लिखकर भी जानकारी भर सकते हैं।' : 'Listening stopped. You can also type the details.')
+        : (language === 'hi-IN' ? 'सुनना बंद नहीं हो सका। कृपया माइक्रोफ़ोन अनुमति जांचें।' : 'Listening could not be stopped. Check microphone permissions.'),
+    })
+  }
+
+  async function startMedicineVoiceEntry(medicineId) {
+    if (isSpeaking) stopSpeaking()
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!Recognition) {
+      setVoiceEntry({
+        medicineId,
+        status: 'unavailable',
+        message: language === 'hi-IN' ? 'इस ब्राउज़र में वॉइस पहचान उपलब्ध नहीं है। कृपया जानकारी टाइप करें।' : 'Speech recognition is unavailable in this browser. Please type the details.',
+      })
+      return
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setVoiceEntry({
+        medicineId,
+        status: 'unavailable',
+        message: language === 'hi-IN' ? 'माइक्रोफ़ोन उपलब्ध नहीं है। कृपया जानकारी टाइप करें।' : 'Microphone access is unavailable. Please type the details.',
+      })
+      return
+    }
+
+    const requestId = ++voiceRequestRef.current
+    if (recognitionRef.current) {
+      const previousRecognition = recognitionRef.current
+      recognitionRef.current = null
+      try {
+        previousRecognition.abort()
+      } catch {
+        try {
+          previousRecognition.stop()
+        } catch {
+          setVoiceEntry({
+            medicineId,
+            status: 'error',
+            message: language === 'hi-IN' ? 'पिछला माइक्रोफ़ोन सत्र बंद नहीं हो सका।' : 'The previous microphone session could not be stopped.',
+          })
+          return
+        }
+      }
+    }
+    const field = voiceFields[medicineId] || 'instructions'
+    setVoiceEntry({
+      medicineId,
+      status: 'requesting',
+      message: language === 'hi-IN' ? 'माइक्रोफ़ोन की अनुमति मांगी जा रही है…' : 'Requesting microphone permission…',
+    })
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach((track) => track.stop())
+      if (requestId !== voiceRequestRef.current) return
+
+      const recognition = new Recognition()
+      recognition.lang = language
+      recognition.interimResults = false
+      recognition.maxAlternatives = 1
+      recognitionRef.current = recognition
+      recognition.onresult = (event) => {
+        if (recognitionRef.current !== recognition) return
+        const transcript = event.results?.[event.resultIndex]?.[0]?.transcript?.trim()
+        if (!transcript) {
+          setVoiceEntry({
+            medicineId,
+            status: 'error',
+            message: language === 'hi-IN' ? 'आवाज़ समझ में नहीं आई। फिर कोशिश करें या टाइप करें।' : 'No speech was recognized. Try again or type the details.',
+          })
+          return
+        }
+        updateMedicine(medicineId, field, transcript)
+        setVoiceEntry({
+          medicineId,
+          status: 'recognized',
+          message: language === 'hi-IN' ? 'आवाज़ पहचानी गई और फ़ील्ड में भरी गई। यह पुष्टि नहीं है—मूल पर्चे से जांचें।' : 'Speech recognized and added to the field. This is not verification—check the original prescription.',
+        })
+      }
+      recognition.onerror = (event) => {
+        if (recognitionRef.current !== recognition) return
+        recognitionRef.current = null
+        const denied = event.error === 'not-allowed' || event.error === 'service-not-allowed'
+        setVoiceEntry({
+          medicineId,
+          status: denied ? 'denied' : 'error',
+          message: denied
+            ? (language === 'hi-IN' ? 'माइक्रोफ़ोन की अनुमति नहीं मिली। ब्राउज़र सेटिंग में अनुमति दें या टाइप करें।' : 'Microphone permission was denied. Allow it in browser settings or type the details.')
+            : (language === 'hi-IN' ? 'आवाज़ पहचान में समस्या हुई। फिर कोशिश करें या टाइप करें।' : 'Speech recognition failed. Try again or type the details.'),
+        })
+      }
+      recognition.onend = () => {
+        if (recognitionRef.current !== recognition) return
+        recognitionRef.current = null
+        setVoiceEntry((current) => current.status === 'listening'
+          ? {
+            medicineId,
+            status: 'error',
+            message: language === 'hi-IN' ? 'कोई आवाज़ पहचानी नहीं गई। फिर कोशिश करें या टाइप करें।' : 'No speech was recognized. Try again or type the details.',
+          }
+          : current)
+      }
+      recognition.start()
+      setVoiceEntry({
+        medicineId,
+        status: 'listening',
+        message: language === 'hi-IN' ? 'सुन रहे हैं…' : 'Listening…',
+      })
+    } catch (microphoneError) {
+      if (requestId !== voiceRequestRef.current) return
+      recognitionRef.current = null
+      const denied = ['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(microphoneError.name)
+      setVoiceEntry({
+        medicineId,
+        status: denied ? 'denied' : 'error',
+        message: denied
+          ? (language === 'hi-IN' ? 'माइक्रोफ़ोन की अनुमति नहीं मिली। ब्राउज़र सेटिंग में अनुमति दें या टाइप करें।' : 'Microphone permission was denied. Allow it in browser settings or type the details.')
+          : (language === 'hi-IN' ? 'माइक्रोफ़ोन शुरू नहीं हो सका। फिर कोशिश करें या टाइप करें।' : 'Could not start the microphone. Try again or type the details.'),
+      })
+    }
+  }
+
+  async function checkInteractions() {
+    setInteractionError('')
+    setInteractionCheck(null)
+    if (
+      !medicines.length
+      || medicines.length > 10
+      || prescriptionSource === 'demo'
+      || (selectedImage && !isSelectedImageAnalyzed)
+      || medicines.some((medicine) => !medicine.verified || !medicine.name.trim())
+    ) {
+      setInteractionError('Check every medicine name against the original prescription. The FDA lookup supports up to 10 medicines at a time.')
+      return
+    }
+
+    setInteractionLoading(true)
+    try {
+      const response = await fetch('/api/check-interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          medicines: medicines.map(({ name, generic_name }) => ({ name, generic_name })),
+        }),
+      })
+      let result
+      try {
+        result = await response.json()
+      } catch {
+        throw new Error('The FDA label service returned an invalid response.')
+      }
+      if (!response.ok) throw new Error(result.error || 'Could not check medicine labels.')
+      if (
+        !result
+        || !Array.isArray(result.mentions)
+        || !Array.isArray(result.unavailable)
+        || typeof result.source !== 'string'
+      ) {
+        throw new Error('The FDA label service returned an incomplete response.')
+      }
+      setInteractionCheck(result)
+    } catch (checkError) {
+      setInteractionError(checkError.message || 'Could not check medicine labels. Please try again.')
+    } finally {
+      setInteractionLoading(false)
+    }
+  }
+
+  function toggleTaken(medicineId, slot) {
+    const key = `${TODAY_KEY}-${medicineId}-${slot}`
+    setTaken((current) => ({ ...current, [key]: !current[key] }))
+  }
+
+  function isExpiring(expiryDate) {
+    if (!expiryDate) return false
+    const daysLeft = dateOrdinal(expiryDate) - dateOrdinal(TODAY_KEY)
+    return daysLeft >= 0 && daysLeft <= 30
+  }
+
+  function stopSpeaking() {
+    speechRequestRef.current += 1
+    window.speechSynthesis?.cancel()
+    setIsSpeaking(false)
+    setSpeechMessage(language === 'hi-IN' ? 'आवाज़ रोक दी गई।' : 'Speech stopped.')
+  }
+
+  function listen() {
+    speechRequestRef.current += 1
+    window.speechSynthesis?.cancel()
+    setIsSpeaking(false)
+    if (['requesting', 'listening'].includes(voiceEntry.status)) stopVoiceEntry(voiceEntry.medicineId)
+    if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
+      setSpeechMessage('Speech playback is not available in this browser. You can read the verified details on screen.')
+      return
+    }
+    const readableMedicines = medicines.filter((medicine) => (
+      medicine.verified && getConfirmedField(medicine, 'name') && getConfirmedField(medicine, 'dose')
+    ))
+    if (!readableMedicines.length) {
+      setSpeechMessage(language === 'hi-IN'
+        ? 'पढ़ने के लिए कोई पुष्ट दवा विवरण नहीं है। पहले नाम और खुराक को मूल पर्चे से जांचें।'
+        : 'There are no verified medicine details to read. First check the name and dose against the original prescription.')
+      return
+    }
+
+    const unverifiedCount = medicines.length - readableMedicines.length
+    const speech = [
+      language === 'hi-IN'
+        ? 'यह केवल जांचे गए विवरणों का वाचन है, चिकित्सा सलाह नहीं। दवा लेने से पहले डॉक्टर या फार्मासिस्ट से पुष्टि करें।'
+        : 'Only details marked as checked are read. This is not medical advice. Confirm with a doctor or pharmacist before use.',
+      ...readableMedicines.map((medicine) => {
+        const name = getConfirmedField(medicine, 'name')
+        const dose = getConfirmedField(medicine, 'dose')
+        const frequency = getConfirmedField(medicine, 'frequency')
+        const duration = getConfirmedField(medicine, 'duration')
+        const timing = getConfirmedField(medicine, 'timing')
+        const instructions = getConfirmedField(medicine, language === 'hi-IN' ? 'hindi' : 'instructions')
+        if (language === 'hi-IN') {
+          return `${name}. खुराक: ${dose}. कितनी बार: ${frequency || 'पुष्टि आवश्यक, डॉक्टर या फार्मासिस्ट से पूछें'}. अवधि: ${duration || 'पुष्टि आवश्यक, डॉक्टर या फार्मासिस्ट से पूछें'}. ${timing ? `समय: ${timing}.` : ''} निर्देश: ${instructions || 'स्पष्ट नहीं हैं। डॉक्टर या फार्मासिस्ट से पुष्टि करें।'}`
+        }
+        return `${name}. Dose: ${dose}. Frequency: ${frequency || 'not confirmed; check with a doctor or pharmacist'}. Duration: ${duration || 'not confirmed; check with a doctor or pharmacist'}. ${timing ? `Timing: ${timing}.` : ''} Instructions: ${instructions || 'not confirmed; check with a doctor or pharmacist'}.`
+      }),
+      ...(unverifiedCount > 0
+        ? [language === 'hi-IN'
+          ? 'कुछ दवाओं के विवरण पुष्ट नहीं हैं और उन्हें निर्देशों के रूप में नहीं पढ़ा गया। डॉक्टर या फार्मासिस्ट से पुष्टि करें।'
+          : 'Some medicines are unverified and were not read as instructions. Confirm them with a doctor or pharmacist.']
+        : []),
+    ].join(' ')
+    const requestId = ++speechRequestRef.current
+    try {
+      const utterance = new window.SpeechSynthesisUtterance(speech)
+      utterance.lang = language
+      utterance.onend = () => {
+        if (requestId !== speechRequestRef.current) return
+        setIsSpeaking(false)
+      }
+      utterance.onerror = () => {
+        if (requestId !== speechRequestRef.current) return
+        setIsSpeaking(false)
+        setSpeechMessage('Speech playback could not start. Please read the verified details on screen.')
+      }
+      setSpeechMessage('')
+      setIsSpeaking(true)
+      window.speechSynthesis.speak(utterance)
+    } catch {
+      setIsSpeaking(false)
+      setSpeechMessage('Speech playback could not start. Please read the verified details on screen.')
+    }
+  }
+
+  function shareOnWhatsApp() {
+    const schedule = medicines.map((medicine) => {
+      const times = getScheduleSlots(medicine).map((slot) => slotLabels[slot]).join(', ')
+      return `${medicine.name || 'Medicine name needs verification'}: ${medicine.dose || 'Dose needs verification'}, ${medicine.frequency || 'Frequency needs verification'}, ${medicine.duration || 'Duration needs verification'}, ${medicine.instructions || medicine.timing || 'Instructions need verification'}${times ? ` (${times})` : ''}`
+    }).join('\n')
+    const warningText = warnings.length
+      ? `\n\nInteraction checks to discuss with a clinician:\n${warnings.map((warning) => `- ${warning.warning}`).join('\n')}`
+      : ''
+    const message = `MedSafe medicine list (please verify with a doctor or pharmacist):\n${schedule}${warningText}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
+  }
+
+  const today = TODAY_KEY
+
+  return (
+    <div>
+      <GenericSafetyModule /> className="app-shell">
+      <header className="topbar">
+        <a className="brand" href="#" aria-label="MedSafe home">
+          <span className="brand-icon" aria-hidden="true">✚</span>
+          <span>Med<span>Safe</span></span>
+        </a>
+        <span className="topbar-note">{t('A little help, more peace of mind')}</span>
+        <label className="topbar-language-control" htmlFor="app-language">
+          <span>{t('Language')}</span>
+          <select
+            id="app-language"
+            aria-label={t('Language')}
+            value={language}
+            onChange={(event) => setLanguage(event.target.value)}
+          >
+            <option value="en-IN">{t('English')}</option>
+            <option value="hi-IN">{t('Hindi')}</option>
+          </select>
+        </label>
+      </header>
+
+      <nav className="app-tabs" role="tablist" aria-label="MedSafe sections">
+        <button type="button" role="tab" aria-selected={activeScreen === 'prescription'} className={activeScreen === 'prescription' ? 'active' : ''} onClick={() => setActiveScreen('prescription')}>{t('Prescription')}</button>
+        <button type="button" role="tab" aria-selected={activeScreen === 'health'} className={activeScreen === 'health' ? 'active' : ''} onClick={() => setActiveScreen('health')}>{t('My Health')}</button>
+        <button type="button" role="tab" aria-selected={activeScreen === 'lab'} className={activeScreen === 'lab' ? 'active' : ''} onClick={() => setActiveScreen('lab')}><span className="lab-tab-icon" aria-hidden="true">🧪</span><span>{t('Lab Report')}</span></button>
+      </nav>
+
+      <main hidden={activeScreen !== 'prescription'}>
+        <section className="hero">
+          <div className="hero-copy">
+            <span className="eyebrow"><span className="status-dot" /> {t('MADE FOR FAMILIES')}</span>
+            <h1>{t('Medicine routines,')}<br /><em>{t('made clearer.')}</em></h1>
+            <p>{t('Turn a prescription into a simple schedule you can understand, check and share.')}</p>
+            <div className="hero-note"><span aria-hidden="true">♡</span> {t('A helpful companion, not a replacement for your doctor.')}</div>
+          </div>
+          <div className="hero-art" aria-hidden="true">
+            <div className="art-sun" />
+            <div className="art-leaf leaf-one" />
+            <div className="art-leaf leaf-two" />
+            <div className="art-pill"><span>+</span></div>
+            <div className="art-sparkle sparkle-one">✦</div>
+            <div className="art-sparkle sparkle-two">✦</div>
+          </div>
+        </section>
+
+        <section className="upload-panel" aria-labelledby="upload-heading">
+          <div className="section-title">
+            <span className="step-number">01</span>
+            <div><h2 id="upload-heading">{t('Start with a prescription')}</h2><p>{t('Take a clear photo in good light, or try the sample.')}</p></div>
+          </div>
+          <div className="upload-actions">
+            <label className={`button button-primary upload-button ${loading ? 'disabled' : ''}`}>
+              <span aria-hidden="true">↥</span> {loading ? t('Reading prescription…') : t('Upload or take a photo')}
+              <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture="environment" onChange={handleFileSelection} disabled={loading} />
+            </label>
+            <span className="or-divider">{t('or')}</span>
+            <button type="button" className="button button-secondary" onClick={loadDemo} disabled={loading}>
+              <span aria-hidden="true">✳</span> {t('Try demo prescription')}
+            </button>
+          </div>
+          {previewUrl && (
+            <div className="prescription-preview">
+              <img src={previewUrl} alt={t('Preview of the selected prescription')} />
+              <div>
+              <strong>{t('Photo ready to review')}</strong>
+                <span>{selectedImage?.name}</span>
+                <button type="button" className="button button-primary" onClick={() => void analyzePrescription()} disabled={loading}>
+                {loading ? t('Reading prescription…') : t('Analyze prescription')}
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="privacy-note"><span aria-hidden="true">▣</span> {t('Images are sent to Google Gemini for reading. Avoid including patient names or personal details; MedSafe does not save images.')}</div>
+          {loading && <div className="loading-message"><span className="spinner" /> {t('Carefully reading the prescription…')}</div>}
+          {error && <div className="error-message" role="alert">{t(error)}</div>}
+        </section>
+
+        {medicines.length > 0 && (
+          <>
+            <section className="results-section" aria-labelledby="medicines-heading">
+              <div className="results-heading">
+                <div className="section-title">
+                  <span className="step-number">02</span>
+                  <div>
+                    <h2 id="medicines-heading">{t('Your medicine list')}</h2>
+                    <p>{t('Check every detail against the original prescription.')}</p>
+                    {prescriptionSource === 'ai' && <span className="demo-result-badge">{t('AI transcription — not verified; check every detail against the original.')}</span>}
+                    {prescriptionSource === 'demo' && <span className="demo-result-badge">{t('Sample only — not read from your photo')}</span>}
+                    {prescriptionSource === 'unknown' && <span className="demo-result-badge">{t('Saved list — source not recorded; verify every detail against the original')}</span>}
+                    {selectedImage && !isSelectedImageAnalyzed && prescriptionSource !== 'demo' && <span className="demo-result-badge">{t('New photo not analyzed yet — these are previous results')}</span>}
+                  </div>
+                </div>
+              </div>
+
+              {warnings.length > 0 && (
+                <div className="interaction-banner" role="alert">
+                  <div className="alert-icon">!</div>
+                  <div><strong>{t('Possible interaction in the limited reference list')}</strong><ul>{warnings.map((warning) => <li key={warning.drugs.join('-')}>{warning.warning}</li>)}</ul><p>{t('This list is incomplete. Do not stop or change any medicine on your own. Ask your doctor or pharmacist.')}</p></div>
+                </div>
+              )}
+
+              {showHealthNsaidWarning && (
+                <div className="health-interaction-note" role="alert">
+                  <span className="health-note-icon" aria-hidden="true">!</span>
+                  <p>{t('NSAID painkillers can raise blood pressure and affect sugar control in some people, so ask your doctor.')}</p>
+                </div>
+              )}
+
+              <section className="interaction-checker" aria-labelledby="interaction-check-heading">
+                <div>
+                  <strong id="interaction-check-heading">{t('FDA medicine-label interaction lookup')}</strong>
+                  <p>{t('Checks whether FDA label text explicitly mentions another confirmed medicine. This is not a complete interaction checker.')}</p>
+                </div>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => void checkInteractions()}
+                  disabled={interactionLoading || medicines.length > 10 || prescriptionSource === 'demo' || Boolean(selectedImage && !isSelectedImageAnalyzed) || medicines.some((medicine) => !medicine.verified || !medicine.name.trim())}
+                >
+                  {interactionLoading ? t('Checking FDA labels…') : t('Check FDA labels')}
+                </button>
+                {medicines.length > 10 && <p className="interaction-result-error">{t('The FDA label lookup supports up to 10 medicines at a time.')}</p>}
+                {interactionError && <p className="interaction-result-error" role="alert">{t(interactionError)}</p>}
+                {interactionCheck && (
+                  <div className="interaction-result" role="status">
+                    {interactionCheck.mentions.length > 0 ? (
+                      <>
+                        <strong>{t('FDA label text mentions these medicine pairs:')}</strong>
+                        <ul>
+                          {interactionCheck.mentions.map((mention, index) => (
+                            <li key={`${mention.medicines.join('-')}-${index}`}>
+                              <b>{mention.medicines.join(' + ')}</b>: “{mention.excerpt}”
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <p>{t('No explicit pair mention was found in the labels returned for this lookup. This does not mean the medicines are safe together.')}</p>
+                    )}
+                    {interactionCheck.unavailable.length > 0 && (
+                      <p>{t('Label not found for: {names}.', { names: interactionCheck.unavailable.join(', ') })}</p>
+                    )}
+                    <p>{t('Source: {source}. Ask a doctor or pharmacist to review the full medicine list. Do not stop or change prescribed medicines.', { source: interactionCheck.source })}</p>
+                  </div>
+                )}
+              </section>
+
+              {unclear.length > 0 && (
+                <div className="unclear-note" role="alert"><strong>{t('NEEDS VERIFICATION — ask a doctor or pharmacist if unclear:')}</strong> {unclear.join(' · ')}</div>
+              )}
+
+              <div className="medicine-list">
+                {medicines.map((medicine, index) => {
+                  const scheduleSlots = getScheduleSlots(medicine)
+                  const isEditing = editingMedicineIds.includes(medicine.id)
+                  const uncertainFields = Array.isArray(medicine.uncertain_fields) ? medicine.uncertain_fields : []
+                  const medicineVoiceEntry = voiceEntry.medicineId === medicine.id ? voiceEntry : null
+                  const voiceBusy = ['requesting', 'listening'].includes(voiceEntry.status)
+                  const thisMedicineVoiceBusy = voiceBusy && voiceEntry.medicineId === medicine.id
+                  return (
+                    <article className="medicine-card" key={medicine.id}>
+                      <div className="medicine-card-heading">
+                        <div className="medicine-number">{String(index + 1).padStart(2, '0')}</div>
+                        <div className="medicine-title-wrap">
+                          <h3>{medicine.name || t('Medicine name — NEEDS VERIFICATION')}</h3>
+                          {medicine.generic_name && <p className="generic-subtitle">{medicine.generic_name}</p>}
+                        </div>
+                        {!medicine.verified && (
+                          <span className="confirm-badge"><span aria-hidden="true">!</span> {t('NEEDS VERIFICATION')}</span>
+                        )}
+                        {medicine.verified && <span className="verified-badge">{t('Checked against original · saved on this device')}</span>}
+                      </div>
+                      <div className="medicine-verification">
+                        {isEditing ? (
+                          <>
+                            <p>{t('Review each edited value against the original photo. Voice input is only a draft and does not verify medicine details.')}</p>
+                            <button type="button" className="button button-primary" onClick={() => confirmMedicine(medicine.id)}>{t('Save and confirm')}</button>
+                          </>
+                        ) : medicine.verified ? (
+                          <button
+                            type="button"
+                            className="button button-secondary"
+                            onClick={() => setEditingMedicineIds((current) => [...current, medicine.id])}
+                          >
+                            {t('Edit details')}
+                          </button>
+                        ) : (
+                          <>
+                            <p>{t('Compare the details below with the original prescription. Unclear names or doses must be confirmed by a doctor or pharmacist.')}</p>
+                            <button
+                              type="button"
+                              className="button button-secondary"
+                              onClick={() => setEditingMedicineIds((current) => [...current, medicine.id])}
+                            >
+                              {t('Edit details')}
+                            </button>
+                            <button type="button" className="button button-primary" onClick={() => confirmMedicine(medicine.id)}>
+                              {t('I checked this medicine against the original')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      {medicineValidationErrors[medicine.id] && (
+                        <p className="medicine-validation-error" role="alert">{t(medicineValidationErrors[medicine.id])}</p>
+                      )}
+                      <div className="medicine-fields">
+                        {[
+                          ['name', 'Medicine name'],
+                          ['generic_name', 'Generic / salt'],
+                          ['dose', 'Dose'],
+                          ['frequency', 'How often'],
+                          ['timing', 'When to take'],
+                          ['duration', 'For how long'],
+                          ['instructions', 'Instructions'],
+                          ['hindi', 'Hindi instruction'],
+                        ].map(([field, label]) => (
+                          <label className={['hindi', 'instructions'].includes(field) ? 'field-wide' : ''} key={field}>
+                            <span>{t(label)}</span>
+                            <input
+                              value={medicine[field] || ''}
+                              placeholder={uncertainFields.includes(field) || !medicine[field] ? t('NEEDS VERIFICATION') : ''}
+                              disabled={!isEditing}
+                              onChange={(event) => updateMedicine(medicine.id, field, event.target.value)}
+                              aria-required={['name', 'dose'].includes(field)}
+                              aria-invalid={Boolean(medicineValidationErrors[medicine.id] && ['name', 'dose'].includes(field))}
+                              aria-label={t('{label} for {medicine}', {
+                                label: t(label),
+                                medicine: medicine.name || `${t('Medicine')} ${index + 1}`,
+                              })}
+                            />
+                          </label>
+                        ))}
+                        <div className="confidence-status">
+                          <span>{t('AI reading confidence')}</span>
+                          <strong>{Math.round(Number(medicine.confidence || 0) * 100)}% · {t('Always verify manually')}</strong>
+                        </div>
+                        <label>
+                          <span>{t('Expiry date')}</span>
+                          <input type="date" value={medicine.expiry_date || ''} disabled={!isEditing} onChange={(event) => updateMedicine(medicine.id, 'expiry_date', event.target.value)} />
+                        </label>
+                      </div>
+                      {isEditing && (
+                        <div className="medicine-voice-controls">
+                          <label>
+                            <span>{t('Voice input field')}</span>
+                            <select
+                              value={voiceFields[medicine.id] || 'instructions'}
+                              onChange={(event) => setVoiceFields((current) => ({ ...current, [medicine.id]: event.target.value }))}
+                            >
+                              <option value="name">{t('Medicine name')}</option>
+                              <option value="dose">{t('Dose')}</option>
+                              <option value="frequency">{t('How often')}</option>
+                              <option value="duration">{t('For how long')}</option>
+                              <option value="instructions">{t('Instructions')}</option>
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            className="button button-secondary"
+                            disabled={voiceBusy && !thisMedicineVoiceBusy}
+                            onClick={() => thisMedicineVoiceBusy ? stopVoiceEntry(medicine.id) : void startMedicineVoiceEntry(medicine.id)}
+                          >
+                            {t(thisMedicineVoiceBusy ? 'Stop listening' : 'Start listening')}
+                          </button>
+                          {medicineVoiceEntry?.message && (
+                            <p className={`medicine-voice-status status-${medicineVoiceEntry.status}`} role="status" aria-live="polite">
+                              {medicineVoiceEntry.message}
+                            </p>
+                          )}
+                          <p className="medicine-voice-note">{t('Spoken words only fill this field. Check them against the prescription; they are not medical approval.')}</p>
+                        </div>
+                      )}
+                      {isExpiring(medicine.expiry_date) && <div className="expiry-note">{t('Check this medicine: it expires within 30 days.')}</div>}
+                      <p className="generic-note">{t('No substitution is suggested. A pharmacist must confirm the same active ingredient, strength, dosage form, route, and release type before considering any alternative.')}</p>
+                      <div className="schedule">
+                        <div className="schedule-title"><span className="schedule-icon">◷</span><strong>{t('Daily schedule')}</strong></div>
+                        {scheduleSlots.length ? (
+                          <div className="dose-list">
+                            {scheduleSlots.map((slot) => {
+                              const key = `${today}-${medicine.id}-${slot}`
+                              return (
+                                <label className={`dose-check ${taken[key] ? 'is-taken' : ''}`} key={slot}>
+                                  <input type="checkbox" checked={Boolean(taken[key])} onChange={() => toggleTaken(medicine.id, slot)} />
+                                  <span className="custom-checkbox" />
+                                  <span className="dose-time">{t(slotLabels[slot])}{language === 'hi-IN' && <small>{t(slotLabels[slot])}</small>}</span>
+                                  <span className="dose-detail">{medicine.dose || t('Dose')}{medicine.timing ? ` · ${medicine.timing}` : ''}</span>
+                                  <span className="taken-label">{t(taken[key] ? 'Taken' : 'Mark as taken')}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        ) : !medicine.verified ? (
+                          <p className="as-needed-note">{t('Verify this medicine with the original prescription before using a schedule.')}</p>
+                        ) : (
+                          <p className="as-needed-note">{t('No schedule was inferred. Follow only the instructions confirmed by your doctor or pharmacist.')}</p>
+                        )}
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+              <div className="action-row">
+                <button type="button" className="button button-primary listen-button" onClick={listen} disabled={isSpeaking}><span aria-hidden="true">◖</span> {t('Listen in {language}', { language: t(language === 'hi-IN' ? 'Hindi' : 'English') })}</button>
+                {isSpeaking && <button type="button" className="button button-secondary" onClick={stopSpeaking}>{t('Stop speaking')}</button>}
+                <button type="button" className="button button-whatsapp" onClick={shareOnWhatsApp}><span aria-hidden="true">↗</span> {t('Send to family on WhatsApp')}</button>
+              </div>
+              {speechMessage && <p className="speech-status" role="status" aria-live="polite">{t(speechMessage)}</p>}
+              <p className="prescription-disclaimer">{t('Decision-support only. Verify every medicine with a healthcare professional before use. A missing interaction warning does not mean a combination is safe. Never change or stop a prescribed medicine based on this tool.')}</p>
+            </section>
+          </>
+        )}
+      </main>
+
+      <div className="prescription-empty-state" hidden={activeScreen !== 'prescription' || medicines.length > 0 || !unclear.length}>
+        <h2>{t('No medicine could be read clearly')}</h2>
+        <p>{t('Please confirm the prescription with a doctor or pharmacist. Do not use guessed medicine names or doses.')}</p>
+        <ul>{unclear.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>
+      </div>
+
+      <div className="health-screen-wrap" hidden={activeScreen !== 'health'}>
+        <MyHealth
+          profile={healthProfile}
+          onProfileChange={setHealthProfile}
+          onClearLocalData={clearLocalAppData}
+          isActive={activeScreen === 'health'}
+        />
+      </div>
+
+      <div className="lab-screen-wrap" hidden={activeScreen !== 'lab'}>
+        <LabReport />
+      </div>
+
+      <footer className="footer">
+        <div className="footer-mark">✚ <strong>MedSafe</strong></div>
+        <p>{t('This is not medical advice. Always confirm with your doctor or pharmacist.')}</p>
+        <span>{t('Made with care for families in India')}</span>
+      </footer>
+    </div>
+  )
+}
+
+export default App

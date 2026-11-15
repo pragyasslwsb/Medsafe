@@ -1,0 +1,48 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MedSafe - Medicine reminder</title>
+  <link rel="stylesheet" href="reminder.css">
+</head>
+<body>
+    <section class="reminder" id="medicine-reminder">
+    <h2>Medicine reminders</h2>
+
+    <div id="reminder-alerts" role="alert" aria-live="assertive"></div>
+
+    <form id="reminder-form">
+      <label>
+        Medicine name
+        <input type="text" id="rm-name" required maxlength="60">
+      </label>
+      <label>
+        Dose (optional)
+        <input type="text" id="rm-dose" maxlength="40" placeholder="1 tablet">
+      </label>
+      <label>
+        Date
+        <input type="date" id="rm-date" required>
+      </label>
+      <label>
+        Time
+        <input type="time" id="rm-time" required>
+      </label>
+      <label>
+        Repeat
+        <select id="rm-repeat">
+          <option value="once">Only once</option>
+          <option value="daily">Every day</option>
+        </select>
+      </label>
+      <p id="rm-error" class="rm-error" role="alert"></p>
+      <button type="submit">Add reminder</button>
+    </form>
+
+    <ul id="reminder-list"></ul>
+  </section>
+  <script src="reminder.js"></script>
+</body>
+</html>
+

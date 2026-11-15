@@ -1,0 +1,4 @@
+
+.reminders-container { color: #0f172a; font-family: inherit; }
+.reminder-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05); padding: 1.75rem; margin-bottom: 1.5rem; }
+input:focus, select:focus { border-color: #0f766e !important; box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important; background: #ffffff !important; }
