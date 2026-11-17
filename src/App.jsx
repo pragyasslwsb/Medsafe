@@ -1,4 +1,6 @@
-﻿import MedicineReminder from './components/MedicineReminder.jsx'
+import MedCabinet from './components/MedCabinet.jsx'
+import EmergencyCard from './components/EmergencyCard.jsx'
+﻿import Reminders from './components/RemindersNew.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import interactions from './data/interactions.json'
 import generics from './data/generics.json'
@@ -731,7 +733,9 @@ function App() {
         <button type="button" role="tab" aria-selected={activeScreen === 'health'} className={activeScreen === 'health' ? 'active' : ''} onClick={() => setActiveScreen('health')}>{t('My Health')}</button>
         <button type="button" role="tab" aria-selected={activeScreen === 'lab'} className={activeScreen === 'lab' ? 'active' : ''} onClick={() => setActiveScreen('lab')}><span className="lab-tab-icon" aria-hidden="true">ðŸ§ª</span><span>{t('Lab Report')}</span></button>
       
-          <button type="button" role="tab" aria-selected={activeScreen === 'reminders'} className={activeScreen === 'reminders' ? 'active' : ''} onClick={() => setActiveScreen('reminders')}><span aria-hidden="true">⏰</span><span>{language === 'hi-IN' ? 'रिमाइंडर' : 'Reminders'}</span></button>
+          <button type="button" role="tab" aria-selected={activeScreen === 'reminders'} className={activeScreen === 'reminders' ? 'active' : ''} onClick={() => setActiveScreen('reminders')}><span aria-hidden="true">?</span><span>Reminders</span></button>
+        <button type="button" role="tab" aria-selected={activeScreen === 'emergency'} className={activeScreen === 'emergency' ? 'active' : ''} onClick={() => setActiveScreen('emergency')}><span aria-hidden="true">+</span><span>{t('Emergency ID')}</span></button>
+        <button type="button" role="tab" aria-selected={activeScreen === 'cabinet'} className={activeScreen === 'cabinet' ? 'active' : ''} onClick={() => setActiveScreen('cabinet')}><span aria-hidden="true">💊</span><span>{t('Med Cabinet')}</span></button>
         </nav>
 
       <main hidden={activeScreen !== 'prescription'}>
@@ -1040,7 +1044,15 @@ function App() {
       </div>
 
       <div className="reminders-screen-wrap" hidden={activeScreen !== 'reminders'}>
-        <MedicineReminder visible={activeScreen === 'reminders'} />
+        <Reminders />
+      </div>
+
+      <div className="emergency-screen-wrap" hidden={activeScreen !== 'emergency'}>
+        <EmergencyCard medicines={medicines} healthProfile={healthProfile} t={t} />
+      </div>
+
+      <div className="cabinet-screen-wrap" hidden={activeScreen !== 'cabinet'}>
+        <MedCabinet medicines={medicines} />
       </div>
 
       <footer className="footer">
@@ -1053,4 +1065,3 @@ function App() {
 }
 
 export default App
-

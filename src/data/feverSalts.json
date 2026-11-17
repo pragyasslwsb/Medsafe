@@ -1,0 +1,20 @@
+﻿{
+  "paracetamol": {
+    "name": "Paracetamol / Acetaminophen",
+    "category": "Analgesic / Antipyretic",
+    "maxDailyMg": 4000,
+    "warning": "Risk of severe liver damage if combined with other products containing Paracetamol (e.g., Dolo, Crocin, Calpol)."
+  },
+  "ibuprofen": {
+    "name": "Ibuprofen",
+    "category": "NSAID",
+    "maxDailyMg": 1200,
+    "warning": "Risk of gastrointestinal bleeding or kidney strain if combined with other NSAIDs (e.g., Advil, Brufen)."
+  },
+  "aspirin": {
+    "name": "Acetylsalicylic Acid (Aspirin)",
+    "category": "NSAID / Antiplatelet",
+    "maxDailyMg": 4000,
+    "warning": "Do not combine with other blood thinners or NSAIDs without medical supervision."
+  }
+}

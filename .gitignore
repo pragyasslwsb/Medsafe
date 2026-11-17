@@ -25,3 +25,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+*.bak
+*.backup
+add*Feature.cjs
+
+node_modules
+dist
+.env
