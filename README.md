@@ -1,82 +1,232 @@
-# MedSafe
 
-MedSafe is an existing Vite + React healthcare app with an Express API. The prescription reader sends a user-selected image to Gemini for transcription; its clearly labeled sample is fictional and does not call the AI.
+# 💊 MedSafe – Smart Healthcare & Medicine Management Platform
 
-## Set up the Gemini key
+<p align="center">
+  <b>Making healthcare information easier to understand and manage.</b>
+</p>
 
-1. In this folder, copy `.env.example` to `.env`.
-2. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
-3. Configure the private history database and session secret in `.env`:
+<p align="center">
+  A smart healthcare companion designed to help users understand prescriptions, analyze lab reports, track health readings and manage their medicines.
+</p>
 
-   ```env
-   GEMINI_API_KEY=your_actual_key_here
-   MONGODB_URI=mongodb+srv://<database-user>:<password>@<your-cluster>/<database>?retryWrites=true&w=majority
-   JWT_SECRET=your_random_secret_at_least_32_characters_long
-   ```
+---
 
-Create a MongoDB Atlas database user and allow the development machine's IP in Atlas Network Access. Generate a JWT secret locally in PowerShell with:
+## 📌 About The Project
 
-```powershell
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+MedSafe is a smart healthcare management platform that helps users organize and understand important health information in one place.
+
+It focuses on improving accessibility to medical information through prescription reading, lab report analysis, medicine management and health tracking.
+
+The platform also includes Hindi language support to make healthcare information easier to understand.
+
+---
+
+## 🎯 Problem Statement
+
+Patients often find it difficult to understand medical prescriptions, interpret laboratory reports and keep track of their medicines and health readings.
+
+Important healthcare information can become difficult to manage between doctor visits.
+
+MedSafe aims to simplify this process by providing a centralized platform for organizing and understanding health-related information.
+
+---
+
+## ✨ Key Features
+
+### 1. 📄 Smart Prescription Reader
+- Extracts medicine information from uploaded prescriptions.
+- Displays medicine names and available details.
+- Shows dosage, frequency, timing and duration when detected.
+- Provides confidence information and verification options.
+- Includes Hindi medicine instructions.
+
+### 2. 💊 Medicine Interaction Checker
+- Checks potential interactions between medicines.
+- Provides medicine safety information.
+- Includes warnings for relevant health conditions.
+- Helps users identify information that should be discussed with a healthcare professional.
+
+### 3. 🗓️ Smart Medicine Schedule
+- Organizes medicine schedules.
+- Supports morning, afternoon and night schedules.
+- Allows users to track taken medicines.
+- Includes medicine expiry warnings.
+- Supports medicine information extracted from prescriptions.
+
+### 4. 🧪 Lab Report Analyzer
+- Extracts information from uploaded laboratory reports.
+- Displays important test values.
+- Provides report summaries.
+- Supports Hindi translation.
+- Presents health data through charts.
+
+### 5. ❤️ Health Tracking
+- Supports blood pressure and blood glucose readings.
+- Reads uploaded health report images.
+- Displays previous readings and history graphs.
+- Provides range-based informational warnings.
+
+### 6. 🌐 Hindi & English Language Support
+- Hindi and English language support.
+- Translation of medical information.
+- Hindi text-to-speech support.
+- Voice input for filling information.
+
+### 7. 📲 Family Notifications
+- Supports sharing health updates with family members through WhatsApp.
+- Allows users to enter family contact information.
+
+---
+
+## 🛠️ Technology Stack
+
+### Frontend
+- React.js
+- JavaScript
+- HTML5
+- CSS3
+- Vite
+
+### Backend
+- Node.js
+- Express.js
+
+### Database & Authentication
+- MongoDB
+- Mongoose
+- JWT Authentication
+- Cookie-based sessions
+
+### AI & Integrations
+- Google Gemini API
+- FDA Drug Label API
+- Browser Speech Recognition
+- Text-to-Speech
+
+---
+
+## ⚙️ Project Architecture
+
+MedSafe follows a frontend and backend architecture.
+
+- **Frontend:** React application built using Vite.
+- **Backend:** Express.js server handles API requests.
+- **Database:** MongoDB stores application data.
+- **AI Integration:** Gemini API supports AI-powered analysis features.
+- **External API:** FDA Drug Label API provides medicine label information.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+Make sure you have installed:
+
+- Node.js
+- npm
+- MongoDB Atlas account
+- Google Gemini API key
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/pragyasslwsb/Medsafe.git
 ```
 
-Keep `.env` private; it is excluded from Git. Database credentials, the JWT secret, and the Gemini key are used only by the backend and are never included in the browser app.
+### 2. Navigate to the Project
 
-## Run on Windows
+```bash
+cd Medsafe
+```
 
-Open a terminal in the `medsafe` folder and install dependencies once:
+### 3. Install Dependencies
 
-```powershell
+```bash
 npm install
 ```
 
-Run the API and Vite in **two separate terminals**:
+### 4. Configure Environment Variables
 
-```powershell
-npm run server
+Create a `.env` file in the project root and configure the environment variables required by your application.
+
+Example:
+
+```env
+PORT=3001
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-```powershell
-npm run dev
-```
+Use the exact variable names expected by your backend configuration. Never commit your actual API keys or secrets.
 
-Or start both in one terminal:
+### 5. Run the Application
 
-```powershell
+Start the development environment:
+
+```bash
 npm run dev:all
 ```
 
-Open the Vite URL printed in the terminal (usually `http://localhost:5173`). The Vite `/api` proxy forwards requests to `http://localhost:3001`.
-The API binds to `127.0.0.1` by default so local development does not expose patient sessions to the network. For a separate frontend origin, set `CORS_ORIGINS` to a comma-separated allowlist. Production deployments should terminate HTTPS at a trusted reverse proxy and keep the API bound to loopback.
+Alternatively, use the individual frontend and backend scripts configured in `package.json`.
 
-Run the local checks before a demo:
+---
 
-```powershell
-npm test
-npm run lint
-npm run build
+## 📂 Project Structure
+
+```text
+Medsafe/
+│
+├── api/
+│   └── Backend API and server files
+│
+├── src/
+│   ├── components/
+│   ├── pages/
+│   ├── data/
+│   └── App.jsx
+│
+├── public/
+├── package.json
+├── vite.config.js
+└── README.md
 ```
 
-## Notes
+*Note: Update this structure to match the actual repository folders.*
 
-- Prescription photos must be JPG, JPEG, or PNG and no larger than 7 MB. The backend checks the image signature, rate-limits reads, and sends the image to Gemini `gemini-3.5-flash-lite`; it does not save the photo. Check Google's data-use terms for the API tier you use, and avoid including patient names or other personal details.
-- `POST /api/read-prescription` returns structured transcription fields and marks unreadable fields for verification. The results are not medical advice: compare every detail with the original, and ask a doctor or pharmacist to confirm unclear medicine names or doses before use.
-- `POST /api/check-interactions` looks for explicit medicine-pair mentions in U.S. FDA openFDA drug-label interaction sections. It requires manually confirmed medicine names, but it is not comprehensive; no match is not evidence that a combination is safe. Ask a doctor or pharmacist to review the full list and never stop or change prescribed medicines based on this tool.
-- The legacy interaction list is a small reference only, not a complete clinical interaction service.
-- MedSafe does not suggest generic substitutions. A pharmacist must confirm the active ingredient, strength, dosage form, route, and release type before considering an alternative.
-- The schedule, taken checkboxes, My Health profile, and readings are stored in this browser's local storage. Use **Clear saved health data on this device** before sharing a browser profile; it does not delete reports saved to your account.
-- This is not medical advice. Always confirm with your doctor or pharmacist.
+---
 
-## My Health
+## 🔐 Privacy & Medical Disclaimer
 
-The **My Health** tab stores a patient profile and timestamped sugar/BP readings in local storage. It includes manual, voice, and meter-photo entry; photo reads use `POST /api/read-meter`. Safety statuses and trend warnings are rule-based in `src/healthSafety.js`, with limits in `src/data/thresholds.js`.
+- MedSafe is an informational healthcare support tool.
+- It is not a replacement for professional medical advice.
+- AI-generated results may contain errors and should be verified.
+- Users should consult qualified healthcare professionals before making medical decisions.
+- Do not rely on automated analysis for emergency medical decisions.
 
-Use **Load demo data** to view fictional Ramesh Kumar readings, the rising-trend warning, and a critical sugar alert. If this browser already has a health profile or readings, the app asks for confirmation before replacing them. Add a real family WhatsApp number in the profile to test family alerts.
+---
 
-## Lab Report
+## 🔮 Future Improvements
 
-The **Lab Report** tab can read a JPEG, PNG, WebP photo, or PDF (up to 7 MB) with `POST /api/read-lab-report`, or display its built-in demo without calling the API. Images are resized in the browser; PDFs are sent as selected. Hide patient names and IDs before uploading. Restart `npm run server` after changing `server.js` so the new endpoint is available.
+- Improved medicine interaction coverage.
+- More regional language support.
+- Enhanced healthcare data visualization.
+- Improved patient history management.
+- Better integration with healthcare services.
 
-The Lab Report **Health History** supports account registration and sign-in, private saved extracted reports, report comparison, actual-data trend charts, and a user-confirmed appointment summary download/WhatsApp share. Authenticated report endpoints derive the patient identity from a signed HTTP-only session cookie and only query that patient's records. Only extracted report data and user-entered date/lab details are saved; the original photo is not stored. Demo results cannot be saved. Set `MONGODB_URI` and a 32-character-or-longer `JWT_SECRET` to enable these account features. Existing medicine, health profile, and reading localStorage data is retained.
+---
 
-Auth and history endpoints: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/patient/reports`, `POST /api/patient/reports`, `GET /api/patient/reports/:reportId`, and `POST /api/patient/reports/compare`.
+## 👩‍💻 Developer
+
+**Pragya Jain**
+
+B.Tech Information Technology Student
+
+GitHub: [@pragyasslwsb](https://github.com/pragyasslwsb)
+
+---
+
+<p align="center">
+  <b>MedSafe – Making Healthcare Information More Accessible.</b>
+</p>
